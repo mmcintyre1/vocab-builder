@@ -9,32 +9,33 @@ function getPin(): string {
 }
 
 const RATINGS = [
-  { value: 1, label: "Again", color: "bg-red-100 text-red-700 border-red-200 active:bg-red-200" },
-  { value: 2, label: "Hard", color: "bg-orange-100 text-orange-700 border-orange-200 active:bg-orange-200" },
-  { value: 3, label: "Good", color: "bg-green-100 text-green-700 border-green-200 active:bg-green-200" },
-  { value: 4, label: "Easy", color: "bg-blue-100 text-blue-700 border-blue-200 active:bg-blue-200" },
+  { value: 1, label: "Again", style: { background: "color-mix(in srgb, #dc2626 15%, var(--surface))", color: "#fca5a5", border: "1px solid color-mix(in srgb, #dc2626 30%, transparent)" } },
+  { value: 2, label: "Hard",  style: { background: "color-mix(in srgb, #ea580c 15%, var(--surface))", color: "#fdba74", border: "1px solid color-mix(in srgb, #ea580c 30%, transparent)" } },
+  { value: 3, label: "Good",  style: { background: "color-mix(in srgb, #16a34a 15%, var(--surface))", color: "#86efac", border: "1px solid color-mix(in srgb, #16a34a 30%, transparent)" } },
+  { value: 4, label: "Easy",  style: { background: "color-mix(in srgb, #2563eb 15%, var(--surface))", color: "#93c5fd", border: "1px solid color-mix(in srgb, #2563eb 30%, transparent)" } },
 ] as const;
 
-function formatCardType(type: string): string {
-  return { definition: "Definition", pronunciation: "Pronunciation", cloze: "Fill in", etymology: "Etymology" }[type] ?? type;
-}
+const TYPE_LABEL: Record<string, string> = {
+  definition: "Definition",
+  pronunciation: "Pronunciation",
+  cloze: "Fill in",
+  etymology: "Etymology",
+};
 
 function renderBack(card: CardWithWord): React.ReactNode {
   if (card.type === "pronunciation") {
     const lines = card.back.split("\n");
-    const ipa = lines[0];
+    const phonetic = lines[0];
     const audioLine = lines.find((l) => l.startsWith("[audio:"));
     const audioUrl = audioLine?.slice(7, -1);
     return (
       <div className="flex flex-col items-center gap-3">
-        <span className="text-2xl font-light tracking-wide text-stone-700">{ipa}</span>
-        {audioUrl && (
-          <audio controls src={audioUrl} className="w-full max-w-xs" />
-        )}
+        <span className="text-2xl font-light tracking-wide" style={{ color: "var(--text)" }}>{phonetic}</span>
+        {audioUrl && <audio controls src={audioUrl} className="w-full max-w-xs" />}
       </div>
     );
   }
-  return <span className="text-stone-700 leading-relaxed whitespace-pre-line">{card.back}</span>;
+  return <span className="leading-relaxed whitespace-pre-line" style={{ color: "var(--text)" }}>{card.back}</span>;
 }
 
 export default function StudyPage() {
@@ -62,28 +63,24 @@ export default function StudyPage() {
   async function handleRating(rating: number) {
     if (!card || submitting) return;
     setSubmitting(true);
-
     await fetch("/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
       body: JSON.stringify({ cardId: card.id, rating }),
     });
-
     setSessionCount((n) => n + 1);
     setSubmitting(false);
-
     if (index + 1 < cards.length) {
       setIndex((i) => i + 1);
       setRevealed(false);
     } else {
-      // Refetch — might have new "again" cards due
       await fetchDue();
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-stone-400">
+      <div className="flex items-center justify-center min-h-[60vh]" style={{ color: "var(--text-muted)" }}>
         Loading…
       </div>
     );
@@ -91,14 +88,18 @@ export default function StudyPage() {
 
   if (!card) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-        <p className="text-4xl">◈</p>
-        <h2 className="text-xl font-semibold text-stone-800">All caught up</h2>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-muted)" }}>
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <h2 className="text-xl font-semibold" style={{ color: "var(--text)" }}>All caught up</h2>
         {sessionCount > 0 && (
-          <p className="text-stone-500 text-sm">{sessionCount} card{sessionCount !== 1 ? "s" : ""} reviewed this session</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            {sessionCount} card{sessionCount !== 1 ? "s" : ""} reviewed this session
+          </p>
         )}
-        <p className="text-stone-400 text-sm">No cards due right now.</p>
-        <Link href="/add" className="mt-2 text-sm underline underline-offset-2 text-stone-500">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>No cards due right now.</p>
+        <Link href="/add" className="mt-2 text-sm underline underline-offset-2" style={{ color: "var(--text-muted)" }}>
           Add new words →
         </Link>
       </div>
@@ -108,61 +109,63 @@ export default function StudyPage() {
   const remaining = cards.length - index;
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Progress */}
-      <div className="flex items-center justify-between text-sm text-stone-400">
-        <span>{formatCardType(card.type)}</span>
-        <span>{remaining} left</span>
+    <div className="flex flex-col gap-5">
+      {/* Progress bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 rounded-full h-1" style={{ background: "var(--border)" }}>
+          <div
+            className="h-1 rounded-full transition-all"
+            style={{ background: "var(--text-muted)", width: `${((index) / cards.length) * 100}%` }}
+          />
+        </div>
+        <span className="text-xs tabular-nums shrink-0" style={{ color: "var(--text-muted)" }}>{remaining} left</span>
       </div>
 
-      {/* Word label */}
-      <p className="text-xs font-medium text-stone-400 uppercase tracking-widest">
-        {card.words?.word}
-      </p>
+      {/* Meta */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+          {TYPE_LABEL[card.type] ?? card.type}
+        </span>
+        {card.words?.source && (
+          <span className="text-xs" style={{ color: "var(--text-faint)" }}>{card.words.source}</span>
+        )}
+      </div>
 
-      {/* Card face */}
+      {/* Card */}
       <div
-        className="min-h-[200px] flex items-center justify-center rounded-2xl border border-stone-200 bg-white p-6 cursor-pointer select-none shadow-sm"
+        className="min-h-[220px] flex items-center justify-center rounded-2xl p-6 cursor-pointer select-none transition-colors"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         onClick={() => !revealed && setRevealed(true)}
       >
-        <div className="flex flex-col items-center gap-4 w-full">
-          {/* Front */}
-          <p className="text-xl text-center text-stone-800 leading-relaxed font-medium">
+        <div className="flex flex-col items-center gap-5 w-full">
+          <p className="text-lg text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>
             {card.front}
           </p>
-
-          {/* Back (revealed) */}
           {revealed ? (
-            <div className="w-full pt-4 border-t border-stone-100 text-center">
+            <div className="card-reveal w-full pt-4 text-center" style={{ borderTop: "1px solid var(--border)" }}>
               {renderBack(card)}
             </div>
           ) : (
-            <p className="text-sm text-stone-300 mt-2">tap to reveal</p>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>tap to reveal</p>
           )}
         </div>
       </div>
 
       {/* Rating buttons */}
       {revealed && (
-        <div className="grid grid-cols-4 gap-2">
-          {RATINGS.map(({ value, label, color }) => (
+        <div className="rating-reveal grid grid-cols-4 gap-2">
+          {RATINGS.map(({ value, label, style }) => (
             <button
               key={value}
               onClick={() => handleRating(value)}
               disabled={submitting}
-              className={`py-3 rounded-xl border text-sm font-medium transition-colors ${color} disabled:opacity-50`}
+              className="py-3 rounded-xl text-sm font-medium transition-opacity disabled:opacity-40"
+              style={style}
             >
               {label}
             </button>
           ))}
         </div>
-      )}
-
-      {/* Source chip */}
-      {card.words?.source && (
-        <p className="text-xs text-center text-stone-300">
-          from {card.words.source}
-        </p>
       )}
     </div>
   );
