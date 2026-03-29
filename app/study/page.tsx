@@ -80,8 +80,19 @@ export default function StudyPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]" style={{ color: "var(--text-muted)" }}>
-        Loading…
+      <div className="flex flex-col gap-5">
+        <div className="flex items-center gap-3">
+          <div className="skeleton flex-1 h-1 rounded-full" />
+          <div className="skeleton h-3 w-12 rounded" />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="skeleton h-3 w-20 rounded" />
+          <div className="skeleton h-3 w-16 rounded" />
+        </div>
+        <div className="rounded-2xl p-6 min-h-[220px] flex flex-col items-center justify-center gap-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <div className="skeleton h-5 rounded w-3/4" />
+          <div className="skeleton h-4 rounded w-1/2" />
+        </div>
       </div>
     );
   }

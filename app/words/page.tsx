@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 function getPin(): string {
@@ -20,53 +20,17 @@ function dueCount(cards: WordRow["cards"]): number {
   return cards.filter((c) => new Date(c.next_review) <= now).length;
 }
 
-function InlineSource({
-  wordId,
-  initial,
-  allSources,
-  onSaved,
-}: {
-  wordId: string;
-  initial: string | null;
-  allSources: string[];
-  onSaved: (val: string | null) => void;
-}) {
-  const [value, setValue] = useState(initial ?? "");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listId = `src-${wordId}`;
-
-  async function save() {
-    const trimmed = value.trim() || null;
-    if (trimmed === initial) return;
-    onSaved(trimmed);
-    await fetch(`/api/words/${wordId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ source: trimmed }),
-    });
-  }
-
+function TrashIcon() {
   return (
-    <div onClick={(e) => e.preventDefault()} className="flex-1 min-w-0">
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); inputRef.current?.blur(); } }}
-        placeholder="source…"
-        list={listId}
-        className="w-full text-xs text-stone-500 italic bg-transparent outline-none border-b border-dashed border-stone-200 focus:border-stone-400 placeholder:text-stone-300 focus:text-stone-700 focus:not-italic pb-px transition-colors"
-        autoCapitalize="none"
-        autoCorrect="off"
-      />
-      <datalist id={listId}>
-        {allSources.map((s) => <option key={s} value={s} />)}
-      </datalist>
-    </div>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
   );
 }
+
 
 export default function WordsPage() {
   const [words, setWords] = useState<WordRow[]>([]);
@@ -97,10 +61,6 @@ export default function WordsPage() {
 
   const totalDue = words.reduce((n, w) => n + dueCount(w.cards), 0);
 
-  function updateSource(id: string, source: string | null) {
-    setWords((prev) => prev.map((w) => w.id === id ? { ...w, source } : w));
-  }
-
   async function deleteWord(id: string, wordStr: string) {
     if (!confirm(`Delete "${wordStr}"?`)) return;
     setWords((prev) => prev.filter((w) => w.id !== id));
@@ -110,8 +70,10 @@ export default function WordsPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-stone-800">Words</h1>
-        <span className="text-sm text-stone-400">{words.length} total · {totalDue} due</span>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>Words</h1>
+        <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+          {words.length} total{totalDue > 0 ? ` · ${totalDue} due` : ""}
+        </span>
       </div>
 
       <input
@@ -124,62 +86,75 @@ export default function WordsPage() {
 
       {allSources.length > 0 && (
         <div className="flex gap-2 flex-wrap">
-          {allSources.map((source) => (
-            <button
-              key={source}
-              onClick={() => setFilterSource(filterSource === source ? "" : source)}
-              className={`tag-chip ${filterSource === source ? "tag-chip-active" : ""}`}
-            >
-              {source}
-            </button>
-          ))}
+          {allSources.map((source) => {
+            const active = filterSource === source;
+            return (
+              <button
+                key={source}
+                onClick={() => setFilterSource(active ? "" : source)}
+                className={`tag-chip ${active ? "tag-chip-active" : ""} flex items-center gap-1`}
+              >
+                {source}
+                {active && <span className="opacity-60 text-sm leading-none">×</span>}
+              </button>
+            );
+          })}
         </div>
       )}
 
       {loading ? (
-        <p className="text-stone-400 text-sm text-center py-8">Loading…</p>
+        <ul className="flex flex-col" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="flex items-center gap-3 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+              <div className="flex flex-col gap-2 flex-1">
+                <div className="skeleton h-4 rounded" style={{ width: `${60 + (i % 3) * 20}px` }} />
+                {i % 2 === 0 && <div className="skeleton h-3 rounded w-24" />}
+              </div>
+              <div className="skeleton h-3 rounded w-12" />
+              <div className="skeleton h-4 w-4 rounded" />
+            </li>
+          ))}
+        </ul>
       ) : filtered.length === 0 ? (
-        <p className="text-stone-400 text-sm text-center py-8">
-          No words yet. <Link href="/add" className="underline underline-offset-2">Add some →</Link>
+        <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
+          No words yet.{" "}
+          <Link href="/add" className="underline underline-offset-2">Add some →</Link>
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-stone-100">
+        <ul className="flex flex-col" style={{ borderTop: "1px solid var(--border-subtle)" }}>
           {filtered.map((w) => {
             const due = dueCount(w.cards);
             return (
-              <li key={w.id} className="flex items-center gap-2 py-2.5 -mx-2 px-2 group hover:bg-stone-50 rounded-lg transition-colors">
-                {/* Word + source */}
-                <Link href={`/words/${w.id}`} className="flex flex-col gap-0.5 min-w-0 flex-1">
-                  <span className="font-medium text-stone-800 truncate">{w.word}</span>
+              <li
+                key={w.id}
+                className="flex items-center gap-3 py-3"
+                style={{ borderBottom: "1px solid var(--border-subtle)" }}
+              >
+                {/* Word + source stacked */}
+                <Link href={`/words/${w.id}`} className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <span className="font-medium" style={{ color: "var(--text)" }}>{w.word}</span>
+                  {w.source && (
+                    <span className="text-xs italic truncate" style={{ color: "var(--text-muted)" }}>{w.source}</span>
+                  )}
                 </Link>
 
-                {/* Inline source edit — sits in the middle */}
-                <InlineSource
-                  wordId={w.id}
-                  initial={w.source}
-                  allSources={allSources}
-                  onSaved={(val) => updateSource(w.id, val)}
-                />
-
-                {/* Due / card count + date */}
-                <div className="flex flex-col items-end shrink-0 text-xs">
+                {/* Due badge */}
+                <div className="shrink-0 text-xs text-right">
                   {due > 0 ? (
-                    <span className="text-amber-600 font-medium">{due} due</span>
+                    <span className="font-medium" style={{ color: "var(--accent-fg)" }}>{due} due</span>
                   ) : (
-                    <span className="text-stone-300">{w.cards.length} cards</span>
+                    <span style={{ color: "var(--text-muted)" }}>{w.cards.length} cards</span>
                   )}
-                  <span className="text-stone-300">
-                    {new Date(w.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  </span>
                 </div>
 
-                {/* Delete — visible on hover/focus */}
+                {/* Delete — always visible on mobile */}
                 <button
                   onClick={(e) => { e.preventDefault(); deleteWord(w.id, w.word); }}
-                  className="text-stone-200 hover:text-red-400 transition-colors text-lg leading-none shrink-0 opacity-0 group-hover:opacity-100"
+                  className="shrink-0 transition-colors hover:text-red-400"
+                  style={{ color: "var(--text-muted)" }}
                   aria-label="Delete"
                 >
-                  ×
+                  <TrashIcon />
                 </button>
               </li>
             );
