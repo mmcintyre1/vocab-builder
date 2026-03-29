@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import type { CardWithWord } from "@/lib/supabase/types";
 
@@ -38,6 +38,9 @@ function renderBack(card: CardWithWord): React.ReactNode {
   return <span className="leading-relaxed whitespace-pre-line" style={{ color: "var(--text)" }}>{card.back}</span>;
 }
 
+// Swipe thresholds
+const SWIPE_MIN = 60; // px to count as a swipe
+
 export default function StudyPage() {
   const [cards, setCards] = useState<CardWithWord[]>([]);
   const [index, setIndex] = useState(0);
@@ -45,6 +48,11 @@ export default function StudyPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
+
+  // Swipe state
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [swipeHint, setSwipeHint] = useState<"again" | "good" | "easy" | null>(null);
 
   const fetchDue = useCallback(async () => {
     setLoading(true);
@@ -119,6 +127,32 @@ export default function StudyPage() {
 
   const remaining = cards.length - index;
 
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+    setDragX(0);
+    setSwipeHint(null);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!touchStart.current || !revealed) return;
+    const dx = e.touches[0].clientX - touchStart.current.x;
+    setDragX(dx);
+    if (dx < -SWIPE_MIN) setSwipeHint("again");
+    else if (dx > SWIPE_MIN) setSwipeHint("easy");
+    else setSwipeHint(null);
+  }
+
+  function handleTouchEnd() {
+    if (!touchStart.current) return;
+    const dx = dragX;
+    setDragX(0);
+    setSwipeHint(null);
+    touchStart.current = null;
+    if (dx < -SWIPE_MIN) handleRating(1);       // Again
+    else if (dx > SWIPE_MIN) handleRating(4);   // Easy
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {/* Progress bar */}
@@ -144,10 +178,26 @@ export default function StudyPage() {
 
       {/* Card */}
       <div
-        className="min-h-[220px] flex items-center justify-center rounded-2xl p-6 cursor-pointer select-none transition-colors"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        className="relative min-h-[220px] flex items-center justify-center rounded-2xl p-6 cursor-pointer select-none"
+        style={{
+          background: "var(--surface)",
+          border: `1px solid ${swipeHint === "again" ? "color-mix(in srgb, #dc2626 50%, var(--border))" : swipeHint === "easy" ? "color-mix(in srgb, #2563eb 50%, var(--border))" : "var(--border)"}`,
+          transform: revealed ? `translateX(${Math.max(-30, Math.min(30, dragX * 0.3))}px)` : "none",
+          transition: dragX === 0 ? "transform 0.2s ease, border-color 0.15s" : "border-color 0.15s",
+        }}
         onClick={() => !revealed && setRevealed(true)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
+        {/* Swipe hint overlay */}
+        {swipeHint === "again" && (
+          <div className="absolute top-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, #dc2626 20%, transparent)", color: "#fca5a5" }}>Again ←</div>
+        )}
+        {swipeHint === "easy" && (
+          <div className="absolute top-3 left-3 text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, #2563eb 20%, transparent)", color: "#93c5fd" }}>→ Easy</div>
+        )}
+
         <div className="flex flex-col items-center gap-5 w-full">
           <p className="text-lg text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>
             {card.front}
@@ -164,18 +214,23 @@ export default function StudyPage() {
 
       {/* Rating buttons */}
       {revealed && (
-        <div className="rating-reveal grid grid-cols-4 gap-2">
-          {RATINGS.map(({ value, label, style }) => (
-            <button
-              key={value}
-              onClick={() => handleRating(value)}
-              disabled={submitting}
-              className="py-3 rounded-xl text-sm font-medium transition-opacity disabled:opacity-40"
-              style={style}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="rating-reveal flex flex-col gap-2">
+          <div className="grid grid-cols-4 gap-2">
+            {RATINGS.map(({ value, label, style }) => (
+              <button
+                key={value}
+                onClick={() => handleRating(value)}
+                disabled={submitting}
+                className="py-3 rounded-xl text-sm font-medium transition-opacity disabled:opacity-40"
+                style={style}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-center" style={{ color: "var(--text-faint)" }}>
+            ← swipe again · swipe easy →
+          </p>
         </div>
       )}
     </div>
