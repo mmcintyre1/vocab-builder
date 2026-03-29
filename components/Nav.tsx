@@ -42,10 +42,14 @@ export default function Nav() {
       className="fixed top-0 left-0 right-0 z-50 flex items-center px-4 h-14"
       style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}
     >
-      {/* Wordmark */}
-      <span className="text-lg font-semibold tracking-tight mr-auto" style={{ color: "var(--text)" }}>
+      {/* Wordmark → stats */}
+      <Link
+        href="/stats"
+        className="text-lg font-semibold tracking-tight mr-auto transition-colors"
+        style={{ color: pathname === "/stats" ? "var(--accent-fg)" : "var(--text)" }}
+      >
         vocab
-      </span>
+      </Link>
 
       {/* Links */}
       <div className="flex items-center gap-1">
