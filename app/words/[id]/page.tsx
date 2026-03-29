@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
-import TagInput from "@/components/TagInput";
 
 function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
@@ -23,7 +22,6 @@ interface Word {
   id: string;
   word: string;
   source: string | null;
-  tags: string[];
   notes: string | null;
   added_at: string;
   cards: Card[];
@@ -31,30 +29,20 @@ interface Word {
 
 const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology"];
 
-async function patchWord(id: string, update: Record<string, unknown>) {
-  const res = await fetch(`/api/words/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", "x-pin": getPin() },
-    body: JSON.stringify(update),
-  });
-  return res.json();
-}
-
 export default function WordDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [word, setWord] = useState<Word | null>(null);
   const [loading, setLoading] = useState(true);
-  const [allTags, setAllTags] = useState<string[]>([]);
   const [allSources, setAllSources] = useState<string[]>([]);
+  const sourceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
       const res = await fetch("/api/words", { headers: { "x-pin": getPin() } });
       const data: Word[] = await res.json();
-      setAllTags(Array.from(new Set(data.flatMap((w) => w.tags))).sort());
       setAllSources(
-        Array.from(new Set(data.map((w) => w.source).filter(Boolean) as string[])).sort()
+        Array.from(new Set(data.map((w: any) => w.source).filter(Boolean) as string[])).sort()
       );
       const found = data.find((w) => w.id === id);
       if (found) setWord(found);
@@ -63,21 +51,16 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
     load();
   }, [id]);
 
-  // Tags: save on change
-  async function handleTagsChange(tags: string[]) {
-    if (!word) return;
-    setWord((prev) => prev ? { ...prev, tags } : prev);
-    await patchWord(word.id, { tags });
-  }
-
-  // Source: save on blur
-  const sourceRef = useRef<HTMLInputElement>(null);
   async function handleSourceBlur() {
     if (!word) return;
     const val = sourceRef.current?.value.trim() || null;
     if (val === word.source) return;
     setWord((prev) => prev ? { ...prev, source: val } : prev);
-    await patchWord(word.id, { source: val });
+    await fetch(`/api/words/${word.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({ source: val }),
+    });
   }
 
   async function handleDelete() {
@@ -106,35 +89,25 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
         </span>
       </div>
 
-      {/* Metadata */}
-      <div className="flex flex-col gap-3 bg-stone-50 rounded-xl p-4 text-sm">
-        <div className="flex items-center gap-3">
-          <span className="text-stone-400 w-14 shrink-0">Source</span>
-          <div className="flex-1 relative">
-            <input
-              ref={sourceRef}
-              type="text"
-              defaultValue={word.source ?? ""}
-              onBlur={handleSourceBlur}
-              placeholder="none"
-              className="w-full bg-transparent outline-none text-stone-700 placeholder:text-stone-300 border-b border-transparent focus:border-stone-300 pb-0.5 transition-colors"
-              list="source-suggestions"
-            />
-            <datalist id="source-suggestions">
-              {allSources.map((s) => <option key={s} value={s} />)}
-            </datalist>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-3">
-          <span className="text-stone-400 w-14 shrink-0 pt-2">Tags</span>
-          <div className="flex-1">
-            <TagInput value={word.tags} onChange={handleTagsChange} suggestions={allTags} />
-          </div>
+      <div className="flex items-center gap-3 bg-stone-50 rounded-xl px-4 py-3 text-sm">
+        <span className="text-stone-400 shrink-0">Source</span>
+        <div className="flex-1 relative">
+          <input
+            ref={sourceRef}
+            type="text"
+            defaultValue={word.source ?? ""}
+            onBlur={handleSourceBlur}
+            onKeyDown={(e) => { if (e.key === "Enter") sourceRef.current?.blur(); }}
+            placeholder="none"
+            list="source-suggestions"
+            className="w-full bg-transparent outline-none text-stone-700 placeholder:text-stone-300 border-b border-transparent focus:border-stone-300 pb-0.5 transition-colors"
+          />
+          <datalist id="source-suggestions">
+            {allSources.map((s) => <option key={s} value={s} />)}
+          </datalist>
         </div>
       </div>
 
-      {/* Cards */}
       <div className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-stone-400 uppercase tracking-widest">Cards</h2>
         {sortedCards.map((card) => {
@@ -159,9 +132,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
               <div className="flex gap-3 text-xs text-stone-300">
                 <span>{card.reps} reps</span>
                 <span>{card.lapses} lapses</span>
-                {card.stability > 0 && (
-                  <span>stability {card.stability.toFixed(1)}d</span>
-                )}
+                {card.stability > 0 && <span>stability {card.stability.toFixed(1)}d</span>}
               </div>
             </div>
           );

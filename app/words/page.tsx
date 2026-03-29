@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 
 function getPin(): string {
@@ -11,9 +11,8 @@ interface WordRow {
   id: string;
   word: string;
   source: string | null;
-  tags: string[];
   added_at: string;
-  cards: { id: string; type: string; next_review: string; reps: number; lapses: number }[];
+  cards: { id: string; next_review: string }[];
 }
 
 function dueCount(cards: WordRow["cards"]): number {
@@ -21,30 +20,75 @@ function dueCount(cards: WordRow["cards"]): number {
   return cards.filter((c) => new Date(c.next_review) <= now).length;
 }
 
-type FilterMode = "tag" | "source";
+function InlineSource({
+  wordId,
+  initial,
+  allSources,
+  onSaved,
+}: {
+  wordId: string;
+  initial: string | null;
+  allSources: string[];
+  onSaved: (val: string | null) => void;
+}) {
+  const [value, setValue] = useState(initial ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listId = `src-${wordId}`;
+
+  async function save() {
+    const trimmed = value.trim() || null;
+    if (trimmed === initial) return;
+    onSaved(trimmed);
+    await fetch(`/api/words/${wordId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({ source: trimmed }),
+    });
+  }
+
+  return (
+    <div onClick={(e) => e.preventDefault()} className="flex-1 min-w-0">
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); inputRef.current?.blur(); } }}
+        placeholder="add source…"
+        list={listId}
+        className="w-full text-xs text-stone-400 italic bg-transparent outline-none placeholder:text-stone-200 focus:text-stone-600 focus:not-italic focus:placeholder:text-stone-300 transition-colors"
+        autoCapitalize="none"
+        autoCorrect="off"
+      />
+      <datalist id={listId}>
+        {allSources.map((s) => <option key={s} value={s} />)}
+      </datalist>
+    </div>
+  );
+}
 
 export default function WordsPage() {
   const [words, setWords] = useState<WordRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterMode, setFilterMode] = useState<FilterMode>("tag");
-  const [filterValue, setFilterValue] = useState("");
+  const [filterSource, setFilterSource] = useState("");
 
   const fetchWords = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (filterMode === "tag" && filterValue) params.set("tag", filterValue);
-    if (filterMode === "source" && filterValue) params.set("source", filterValue);
+    if (filterSource) params.set("source", filterSource);
     const res = await fetch(`/api/words?${params}`, { headers: { "x-pin": getPin() } });
     const data = await res.json();
     setWords(data);
     setLoading(false);
-  }, [filterMode, filterValue]);
+  }, [filterSource]);
 
   useEffect(() => { fetchWords(); }, [fetchWords]);
 
-  const allTags = Array.from(new Set(words.flatMap((w) => w.tags))).sort();
-  const allSources = Array.from(new Set(words.map((w) => w.source).filter(Boolean) as string[])).sort();
+  const allSources = Array.from(
+    new Set(words.map((w) => w.source).filter(Boolean) as string[])
+  ).sort();
 
   const filtered = words.filter((w) =>
     w.word.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,14 +97,14 @@ export default function WordsPage() {
 
   const totalDue = words.reduce((n, w) => n + dueCount(w.cards), 0);
 
-  function setFilter(mode: FilterMode, value: string) {
-    if (filterMode === mode && filterValue === value) {
-      // Toggle off
-      setFilterValue("");
-    } else {
-      setFilterMode(mode);
-      setFilterValue(value);
-    }
+  function updateSource(id: string, source: string | null) {
+    setWords((prev) => prev.map((w) => w.id === id ? { ...w, source } : w));
+  }
+
+  async function deleteWord(id: string, wordStr: string) {
+    if (!confirm(`Delete "${wordStr}"?`)) return;
+    setWords((prev) => prev.filter((w) => w.id !== id));
+    await fetch(`/api/words/${id}`, { method: "DELETE", headers: { "x-pin": getPin() } });
   }
 
   return (
@@ -78,43 +122,20 @@ export default function WordsPage() {
         className="input-field"
       />
 
-      {/* Tag filters */}
-      {allTags.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-stone-400 uppercase tracking-widest">Tags</span>
-          <div className="flex gap-2 flex-wrap">
-            {allTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setFilter("tag", tag)}
-                className={`tag-chip ${filterMode === "tag" && filterValue === tag ? "tag-chip-active" : ""}`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Source filters */}
       {allSources.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-stone-400 uppercase tracking-widest">Sources</span>
-          <div className="flex gap-2 flex-wrap">
-            {allSources.map((source) => (
-              <button
-                key={source}
-                onClick={() => setFilter("source", source)}
-                className={`tag-chip ${filterMode === "source" && filterValue === source ? "tag-chip-active" : ""}`}
-              >
-                {source}
-              </button>
-            ))}
-          </div>
+        <div className="flex gap-2 flex-wrap">
+          {allSources.map((source) => (
+            <button
+              key={source}
+              onClick={() => setFilterSource(filterSource === source ? "" : source)}
+              className={`tag-chip ${filterSource === source ? "tag-chip-active" : ""}`}
+            >
+              {source}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* List */}
       {loading ? (
         <p className="text-stone-400 text-sm text-center py-8">Loading…</p>
       ) : filtered.length === 0 ? (
@@ -126,35 +147,40 @@ export default function WordsPage() {
           {filtered.map((w) => {
             const due = dueCount(w.cards);
             return (
-              <li key={w.id}>
-                <Link
-                  href={`/words/${w.id}`}
-                  className="flex items-center justify-between py-3 gap-3 hover:bg-stone-50 -mx-2 px-2 rounded-lg transition-colors"
-                >
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="font-medium text-stone-800 truncate">{w.word}</span>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      {w.source && (
-                        <span className="text-xs text-stone-400 italic">{w.source}</span>
-                      )}
-                      {w.tags.map((t) => (
-                        <span key={t} className="text-xs bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0 text-xs">
-                    {due > 0 ? (
-                      <span className="text-amber-600 font-medium">{due} due</span>
-                    ) : (
-                      <span className="text-stone-300">{w.cards.length} cards</span>
-                    )}
-                    <span className="text-stone-300">
-                      {new Date(w.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </span>
-                  </div>
+              <li key={w.id} className="flex items-center gap-2 py-2.5 -mx-2 px-2 group hover:bg-stone-50 rounded-lg transition-colors">
+                {/* Word + source */}
+                <Link href={`/words/${w.id}`} className="flex flex-col gap-0.5 min-w-0 flex-1">
+                  <span className="font-medium text-stone-800 truncate">{w.word}</span>
                 </Link>
+
+                {/* Inline source edit — sits in the middle */}
+                <InlineSource
+                  wordId={w.id}
+                  initial={w.source}
+                  allSources={allSources}
+                  onSaved={(val) => updateSource(w.id, val)}
+                />
+
+                {/* Due / card count + date */}
+                <div className="flex flex-col items-end shrink-0 text-xs">
+                  {due > 0 ? (
+                    <span className="text-amber-600 font-medium">{due} due</span>
+                  ) : (
+                    <span className="text-stone-300">{w.cards.length} cards</span>
+                  )}
+                  <span className="text-stone-300">
+                    {new Date(w.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </span>
+                </div>
+
+                {/* Delete — visible on hover/focus */}
+                <button
+                  onClick={(e) => { e.preventDefault(); deleteWord(w.id, w.word); }}
+                  className="text-stone-200 hover:text-red-400 transition-colors text-lg leading-none shrink-0 opacity-0 group-hover:opacity-100"
+                  aria-label="Delete"
+                >
+                  ×
+                </button>
               </li>
             );
           })}
