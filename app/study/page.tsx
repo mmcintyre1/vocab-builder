@@ -48,6 +48,8 @@ export default function StudyPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
+  const [undoCard, setUndoCard] = useState<CardWithWord | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Swipe state
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -71,11 +73,19 @@ export default function StudyPage() {
   async function handleRating(rating: number) {
     if (!card || submitting) return;
     setSubmitting(true);
+
+    const savedCard = card;
     await fetch("/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
       body: JSON.stringify({ cardId: card.id, rating }),
     });
+
+    // Set up undo window (5s)
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoCard(savedCard);
+    undoTimer.current = setTimeout(() => setUndoCard(null), 5000);
+
     setSessionCount((n) => n + 1);
     setSubmitting(false);
     if (index + 1 < cards.length) {
@@ -84,6 +94,35 @@ export default function StudyPage() {
     } else {
       await fetchDue();
     }
+  }
+
+  async function handleUndo() {
+    if (!undoCard) return;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    const savedCard = undoCard;
+    setUndoCard(null);
+
+    await fetch("/api/review", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({
+        cardId: savedCard.id,
+        previousState: {
+          stability: savedCard.stability,
+          difficulty: savedCard.difficulty,
+          reps: savedCard.reps,
+          lapses: savedCard.lapses,
+          lastRating: savedCard.last_rating,
+          lastReview: savedCard.last_review,
+          nextReview: savedCard.next_review,
+        },
+      }),
+    });
+
+    setSessionCount((n) => Math.max(0, n - 1));
+    setCards((prev) => [savedCard, ...prev.filter((c) => c.id !== savedCard.id)]);
+    setIndex(0);
+    setRevealed(false);
   }
 
   // Keyboard shortcuts: space/enter to reveal, 1-4 to rate
@@ -171,6 +210,16 @@ export default function StudyPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Undo toast */}
+      {undoCard && (
+        <div className="card-reveal flex items-center justify-between px-4 py-2.5 rounded-xl text-sm" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <span style={{ color: "var(--text-muted)" }}>Rated "{undoCard.words?.word}"</span>
+          <button onClick={handleUndo} className="font-medium transition-colors" style={{ color: "var(--accent-fg)" }}>
+            Undo
+          </button>
+        </div>
+      )}
+
       {/* Progress bar */}
       <div className="flex items-center gap-3">
         <div className="flex-1 rounded-full h-1" style={{ background: "var(--border)" }}>

@@ -91,3 +91,45 @@ export async function POST(request: NextRequest) {
     ),
   });
 }
+
+// DELETE /api/review — undo the most recent rating for a card
+// Body: { cardId: string, previousState: { stability, difficulty, reps, lapses, lastRating, lastReview, nextReview } }
+export async function DELETE(request: NextRequest) {
+  const pin = getPinFromRequest(request);
+  if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { cardId, previousState } = await request.json();
+  if (!cardId || !previousState) {
+    return NextResponse.json({ error: "cardId and previousState required" }, { status: 400 });
+  }
+
+  // Delete the most recent review for this card
+  const { data: latest } = await supabase
+    .from("reviews")
+    .select("id")
+    .eq("card_id", cardId)
+    .order("reviewed_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latest) {
+    await supabase.from("reviews").delete().eq("id", latest.id);
+  }
+
+  // Restore previous FSRS state
+  const { error } = await supabase
+    .from("cards")
+    .update({
+      stability: previousState.stability,
+      difficulty: previousState.difficulty,
+      reps: previousState.reps,
+      lapses: previousState.lapses,
+      last_rating: previousState.lastRating,
+      last_review: previousState.lastReview,
+      next_review: previousState.nextReview,
+    })
+    .eq("id", cardId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
