@@ -55,9 +55,9 @@ function InlineSource({
         onChange={(e) => setValue(e.target.value)}
         onBlur={save}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); inputRef.current?.blur(); } }}
-        placeholder="add source…"
+        placeholder="source…"
         list={listId}
-        className="w-full text-xs text-stone-400 italic bg-transparent outline-none placeholder:text-stone-200 focus:text-stone-600 focus:not-italic focus:placeholder:text-stone-300 transition-colors"
+        className="w-full text-xs text-stone-500 italic bg-transparent outline-none border-b border-dashed border-stone-200 focus:border-stone-400 placeholder:text-stone-300 focus:text-stone-700 focus:not-italic pb-px transition-colors"
         autoCapitalize="none"
         autoCorrect="off"
       />
