@@ -46,6 +46,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No words provided" }, { status: 400 });
   }
 
+  // Daily rate limit — guards against brute-force API cost abuse
+  const limit = parseInt(process.env.MAX_WORDS_PER_DAY ?? "50");
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("words")
+    .select("*", { count: "exact", head: true })
+    .gte("added_at", dayStart.toISOString());
+  if ((count ?? 0) + wordList.length > limit) {
+    return NextResponse.json(
+      { error: `Daily limit of ${limit} words reached` },
+      { status: 429 }
+    );
+  }
+
   const results = [];
   const errors = [];
 
