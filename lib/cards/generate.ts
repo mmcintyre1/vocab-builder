@@ -32,7 +32,7 @@ export async function generateCardExtras(
   anthropic: Anthropic
 ): Promise<{ clozeSentence: string; simplePhonetic: string }> {
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-latest",
     max_tokens: 200,
     messages: [
       {
@@ -59,7 +59,7 @@ export async function generateWordDataFromClaude(
   anthropic: Anthropic
 ): Promise<WordData> {
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-latest",
     max_tokens: 500,
     messages: [
       {
