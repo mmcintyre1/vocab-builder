@@ -86,6 +86,22 @@ export default function StudyPage() {
     }
   }
 
+  // Keyboard shortcuts: space/enter to reveal, 1-4 to rate
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        if (!revealed) setRevealed(true);
+      } else if (revealed && ["1", "2", "3", "4"].includes(e.key)) {
+        handleRating(parseInt(e.key));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealed, card, submitting]);
+
   if (loading) {
     return (
       <div className="flex flex-col gap-5">
@@ -230,6 +246,9 @@ export default function StudyPage() {
           </div>
           <p className="text-xs text-center" style={{ color: "var(--text-faint)" }}>
             ← swipe again · swipe easy →
+          </p>
+          <p className="hidden sm:block text-xs text-center" style={{ color: "var(--text-faint)" }}>
+            keys: 1 again · 2 hard · 3 good · 4 easy · space reveal
           </p>
         </div>
       )}
