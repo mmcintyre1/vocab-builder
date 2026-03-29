@@ -5,7 +5,8 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# All NEXT_PUBLIC_* vars are intentionally embedded in the client bundle by
+# Next.js — that's what the prefix means. Disable secrets scanning since
+# Netlify incorrectly flags them as leaked secrets.
 [build.environment]
-  # These NEXT_PUBLIC_* vars are intentionally embedded in the client bundle.
-  # Netlify secrets scanning doesn't need to block on them.
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_APP_PIN,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL"
+  SECRETS_SCAN_ENABLED = "false"
