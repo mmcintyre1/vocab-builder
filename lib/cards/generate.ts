@@ -19,21 +19,48 @@ export function makeCloze(sentence: string, word: string): string {
 }
 
 // Check if a cloze sentence is "good" — the blank is discernible from context
-// Heuristic: sentence is long enough and contains enough surrounding words
 export function isClozeUsable(cloze: string, _word: string): boolean {
   const wordCount = cloze.split(/\s+/).length;
   const hasBlank = cloze.includes("_____");
   return hasBlank && wordCount >= 6;
 }
 
+// Generate cloze sentence + simple phonetic in a single Claude call
+export async function generateCardExtras(
+  word: string,
+  definition: string,
+  anthropic: Anthropic
+): Promise<{ clozeSentence: string; simplePhonetic: string }> {
+  const message = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: `For the word "${word}" (${definition}), provide two things as JSON and nothing else:
+{
+  "sentence": "A 10–20 word sentence where the meaning of the word is inferable from context, in a literary or journalistic register.",
+  "phonetic": "Simple syllable respelling with stressed syllable in capitals, e.g. ih-FEM-er-ul or DET-rih-vor"
+}`,
+      },
+    ],
+  });
+
+  const text = message.content[0];
+  if (text.type !== "text") throw new Error("Unexpected Claude response type");
+  const raw = text.text.trim().replace(/^```json\s*/i, "").replace(/```$/, "");
+  const parsed = JSON.parse(raw);
+  return { clozeSentence: parsed.sentence, simplePhonetic: parsed.phonetic };
+}
+
 // Full word data from Claude — used when the dictionary API has no entry
 export async function generateWordDataFromClaude(
   word: string,
   anthropic: Anthropic
-): Promise<import("@/lib/dictionary/types").WordData> {
+): Promise<WordData> {
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 400,
+    max_tokens: 500,
     messages: [
       {
         role: "user",
@@ -42,8 +69,8 @@ Respond with a JSON object and no other text:
 {
   "definition": "(part of speech) primary definition",
   "allDefinitions": ["(part of speech) definition 1", "(part of speech) definition 2"],
-  "ipa": "IPA pronunciation or null",
-  "exampleSentence": "A 10–20 word sentence where the word's meaning is inferable from context",
+  "phonetic": "Simple syllable respelling with stressed syllable in capitals, e.g. ih-FEM-er-ul",
+  "sentence": "A 10–20 word sentence where the word's meaning is inferable from context",
   "etymology": "brief etymology or null"
 }`,
       },
@@ -52,7 +79,6 @@ Respond with a JSON object and no other text:
 
   const text = message.content[0];
   if (text.type !== "text") throw new Error("Unexpected Claude response type");
-
   const raw = text.text.trim().replace(/^```json\s*/i, "").replace(/```$/, "");
   const parsed = JSON.parse(raw);
 
@@ -60,59 +86,31 @@ Respond with a JSON object and no other text:
     word,
     definition: parsed.definition,
     allDefinitions: parsed.allDefinitions,
-    ipa: parsed.ipa ?? null,
+    simplePhonetic: parsed.phonetic ?? null,
     audioUrl: null,
-    exampleSentence: parsed.exampleSentence ?? null,
+    exampleSentence: parsed.sentence ?? null,
     etymology: parsed.etymology ?? null,
   };
-}
-
-export async function generateClozeSentence(
-  word: string,
-  definition: string,
-  anthropic: Anthropic
-): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 150,
-    messages: [
-      {
-        role: "user",
-        content: `Write a single example sentence using the word "${word}" (${definition}).
-The sentence must:
-- Be 10–20 words long
-- Use the word naturally in context
-- Make the word's meaning inferable from surrounding context (not just blank memorization)
-- Come from a realistic, literary or journalistic register
-
-Output only the sentence, no quotation marks, no explanation.`,
-      },
-    ],
-  });
-
-  const text = message.content[0];
-  if (text.type !== "text") throw new Error("Unexpected response type from Claude");
-  return text.text.trim();
 }
 
 export function buildCards(wordData: WordData, clozeSentence: string | null): CardDraft[] {
   const cards: CardDraft[] = [];
 
-  // Definition card
+  // Definition card — one clear primary definition (minimum information principle)
   cards.push({
     type: "definition",
     front: wordData.word,
-    back: wordData.allDefinitions.join("\n"),
+    back: wordData.definition,
   });
 
-  // Pronunciation card (only if we have IPA)
-  if (wordData.ipa) {
+  // Pronunciation card — only if we have a simple human-readable respelling
+  if (wordData.simplePhonetic) {
     cards.push({
       type: "pronunciation",
       front: `How is "${wordData.word}" pronounced?`,
       back: wordData.audioUrl
-        ? `${wordData.ipa}\n[audio:${wordData.audioUrl}]`
-        : wordData.ipa,
+        ? `${wordData.simplePhonetic}\n[audio:${wordData.audioUrl}]`
+        : wordData.simplePhonetic,
     });
   }
 
@@ -129,7 +127,7 @@ export function buildCards(wordData: WordData, clozeSentence: string | null): Ca
     }
   }
 
-  // Etymology card (only if we have origin)
+  // Etymology card
   if (wordData.etymology) {
     cards.push({
       type: "etymology",

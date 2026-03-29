@@ -37,8 +37,8 @@ describe("extractWordData", () => {
     expect(extractWordData(sampleEntry).word).toBe("ephemeral");
   });
 
-  it("extracts IPA phonetic", () => {
-    expect(extractWordData(sampleEntry).ipa).toBe("/ɪˈfɛm(ə)r(ə)l/");
+  it("sets simplePhonetic to null (filled later by Claude)", () => {
+    expect(extractWordData(sampleEntry).simplePhonetic).toBeNull();
   });
 
   it("extracts audio URL", () => {
@@ -71,7 +71,7 @@ describe("extractWordData", () => {
   it("handles missing phonetics gracefully", () => {
     const entry = [{ ...sampleEntry[0], phonetics: [], phonetic: undefined }];
     const data = extractWordData(entry);
-    expect(data.ipa).toBeNull();
+    expect(data.simplePhonetic).toBeNull();
     expect(data.audioUrl).toBeNull();
   });
 

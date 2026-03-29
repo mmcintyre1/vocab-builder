@@ -12,11 +12,8 @@ export async function fetchDictionaryEntry(word: string): Promise<DictionaryEntr
 export function extractWordData(entries: DictionaryEntry[]): WordData {
   const entry = entries[0];
 
-  // IPA: prefer phonetic with audio, fallback to first with text
   const phonetics = entry.phonetics ?? [];
-  const withAudio = phonetics.find((p) => p.audio && p.text);
-  const withText = phonetics.find((p) => p.text);
-  const ipa = withAudio?.text ?? withText?.text ?? entry.phonetic ?? null;
+  const withAudio = phonetics.find((p) => p.audio);
   const audioUrl = withAudio?.audio ?? phonetics.find((p) => p.audio)?.audio ?? null;
 
   // Definitions
@@ -55,7 +52,7 @@ export function extractWordData(entries: DictionaryEntry[]): WordData {
     word: entry.word,
     definition: primaryDefinition,
     allDefinitions,
-    ipa,
+    simplePhonetic: null, // filled later by Claude during card generation
     audioUrl: audioUrl ?? null,
     exampleSentence,
     etymology: entry.origin ?? null,

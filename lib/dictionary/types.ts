@@ -25,10 +25,10 @@ export interface DictionaryEntry {
 // Normalized output after processing
 export interface WordData {
   word: string;
-  definition: string;         // primary definition with part of speech
-  allDefinitions: string[];   // all definitions as strings
-  ipa: string | null;         // IPA pronunciation text
-  audioUrl: string | null;    // audio pronunciation URL
-  exampleSentence: string | null;  // best example sentence from dictionary
-  etymology: string | null;   // origin text
+  definition: string;            // primary definition with part of speech
+  allDefinitions: string[];      // all definitions (for reference, not shown on card)
+  simplePhonetic: string | null; // human-readable pronunciation, e.g. "ih-FEM-er-ul"
+  audioUrl: string | null;       // audio pronunciation URL
+  exampleSentence: string | null;
+  etymology: string | null;
 }

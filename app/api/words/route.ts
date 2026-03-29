@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase/client";
 import { lookupWord } from "@/lib/dictionary/fetch";
-import { buildCards, generateClozeSentence, generateWordDataFromClaude } from "@/lib/cards/generate";
+import { buildCards, generateCardExtras, generateWordDataFromClaude } from "@/lib/cards/generate";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -83,13 +83,16 @@ export async function POST(request: NextRequest) {
       let clozeSentence: string | null = null;
 
       if (!wordData) {
-        // Word not in dictionary API — Claude generates everything
+        // Word not in dictionary API — Claude generates everything including phonetic
         wordData = await generateWordDataFromClaude(wordStr, anthropic);
-      } else if (!wordData.exampleSentence || wordData.exampleSentence.split(" ").length < 8) {
-        // Dictionary entry exists but has no good example sentence
+      } else {
+        // Dictionary entry exists — Claude generates phonetic + cloze in one call
         try {
-          clozeSentence = await generateClozeSentence(wordStr, wordData.definition, anthropic);
+          const extras = await generateCardExtras(wordStr, wordData.definition, anthropic);
+          clozeSentence = extras.clozeSentence;
+          wordData = { ...wordData, simplePhonetic: extras.simplePhonetic };
         } catch {
+          // Claude unavailable — fall back to dictionary example, no phonetic card
           clozeSentence = wordData.exampleSentence;
         }
       }

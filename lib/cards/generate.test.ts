@@ -67,7 +67,7 @@ const sampleWordData: WordData = {
     "(adjective) lasting for a very short time",
     "(noun) an ephemeral plant",
   ],
-  ipa: "/ɪˈfɛm(ə)r(ə)l/",
+  simplePhonetic: "ih-FEM-er-ul",
   audioUrl: "https://api.dictionaryapi.dev/media/pronunciations/en/ephemeral.mp3",
   exampleSentence: "The ephemeral beauty of the cherry blossoms drew crowds every spring.",
   etymology: "mid 16th century: from Greek ephēmeros (lasting only a day)",
@@ -82,16 +82,16 @@ describe("buildCards", () => {
     expect(def!.back).toContain("lasting for a very short time");
   });
 
-  it("produces a pronunciation card when IPA is available", () => {
+  it("produces a pronunciation card when simplePhonetic is available", () => {
     const cards = buildCards(sampleWordData, null);
     const pron = cards.find((c) => c.type === "pronunciation");
     expect(pron).toBeDefined();
-    expect(pron!.back).toContain("/ɪˈfɛm(ə)r(ə)l/");
+    expect(pron!.back).toContain("ih-FEM-er-ul");
     expect(pron!.back).toContain("audio:");
   });
 
-  it("does not produce pronunciation card when IPA is missing", () => {
-    const data = { ...sampleWordData, ipa: null, audioUrl: null };
+  it("does not produce pronunciation card when simplePhonetic is missing", () => {
+    const data = { ...sampleWordData, simplePhonetic: null };
     const cards = buildCards(data, null);
     expect(cards.find((c) => c.type === "pronunciation")).toBeUndefined();
   });
@@ -130,10 +130,10 @@ describe("buildCards", () => {
     expect(cards.find((c) => c.type === "etymology")).toBeUndefined();
   });
 
-  it("definition back contains all definitions joined", () => {
+  it("definition back contains only the primary definition", () => {
     const cards = buildCards(sampleWordData, null);
     const def = cards.find((c) => c.type === "definition")!;
-    expect(def.back).toContain("(adjective) lasting for a very short time");
-    expect(def.back).toContain("(noun) an ephemeral plant");
+    expect(def.back).toBe("(adjective) lasting for a very short time");
+    expect(def.back).not.toContain("(noun) an ephemeral plant");
   });
 });

@@ -180,7 +180,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
               </div>
               <p className="text-sm text-stone-700 leading-relaxed">{card.front}</p>
               <p className="text-sm text-stone-400 border-t border-stone-100 pt-2 leading-relaxed">
-                {card.back.replace(/\[audio:[^\]]+\]/, "").trim()}
+                {(card.back ?? "").replace(/\[audio:[^\]]+\]/, "").trim()}
               </p>
               <div className="flex gap-3 text-xs text-stone-300">
                 <span>{card.reps} reps</span>
