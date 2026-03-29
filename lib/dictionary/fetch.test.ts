@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { extractWordData } from "./fetch";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { extractWordData, lookupWord } from "./fetch";
 import type { DictionaryEntry } from "./types";
 
 const sampleEntry: DictionaryEntry[] = [
@@ -93,5 +93,20 @@ describe("extractWordData", () => {
       },
     ];
     expect(extractWordData(entry).exampleSentence).toBeNull();
+  });
+});
+
+describe("lookupWord", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("returns null when dictionary API returns 404", async () => {
+    vi.stubGlobal("fetch", async () => ({ ok: false, status: 404 }));
+    const result = await lookupWord("detrivore");
+    expect(result).toBeNull();
+  });
+
+  it("throws on non-404 API errors", async () => {
+    vi.stubGlobal("fetch", async () => ({ ok: false, status: 500 }));
+    await expect(lookupWord("ephemeral")).rejects.toThrow("500");
   });
 });

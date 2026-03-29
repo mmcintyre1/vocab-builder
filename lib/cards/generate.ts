@@ -26,6 +26,47 @@ export function isClozeUsable(cloze: string, _word: string): boolean {
   return hasBlank && wordCount >= 6;
 }
 
+// Full word data from Claude — used when the dictionary API has no entry
+export async function generateWordDataFromClaude(
+  word: string,
+  anthropic: Anthropic
+): Promise<import("@/lib/dictionary/types").WordData> {
+  const message = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 400,
+    messages: [
+      {
+        role: "user",
+        content: `Provide dictionary-style information for the word "${word}".
+Respond with a JSON object and no other text:
+{
+  "definition": "(part of speech) primary definition",
+  "allDefinitions": ["(part of speech) definition 1", "(part of speech) definition 2"],
+  "ipa": "IPA pronunciation or null",
+  "exampleSentence": "A 10–20 word sentence where the word's meaning is inferable from context",
+  "etymology": "brief etymology or null"
+}`,
+      },
+    ],
+  });
+
+  const text = message.content[0];
+  if (text.type !== "text") throw new Error("Unexpected Claude response type");
+
+  const raw = text.text.trim().replace(/^```json\s*/i, "").replace(/```$/, "");
+  const parsed = JSON.parse(raw);
+
+  return {
+    word,
+    definition: parsed.definition,
+    allDefinitions: parsed.allDefinitions,
+    ipa: parsed.ipa ?? null,
+    audioUrl: null,
+    exampleSentence: parsed.exampleSentence ?? null,
+    etymology: parsed.etymology ?? null,
+  };
+}
+
 export async function generateClozeSentence(
   word: string,
   definition: string,

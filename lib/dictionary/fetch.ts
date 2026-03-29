@@ -2,11 +2,10 @@ import { DictionaryEntry, WordData } from "./types";
 
 const API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en";
 
-export async function fetchDictionaryEntry(word: string): Promise<DictionaryEntry[]> {
+export async function fetchDictionaryEntry(word: string): Promise<DictionaryEntry[] | null> {
   const res = await fetch(`${API_BASE}/${encodeURIComponent(word.toLowerCase().trim())}`);
-  if (!res.ok) {
-    throw new Error(`Dictionary API error ${res.status} for "${word}"`);
-  }
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Dictionary API error ${res.status} for "${word}"`);
   return res.json() as Promise<DictionaryEntry[]>;
 }
 
@@ -63,7 +62,9 @@ export function extractWordData(entries: DictionaryEntry[]): WordData {
   };
 }
 
-export async function lookupWord(word: string): Promise<WordData> {
+// Returns null if the word is not in the dictionary (404)
+export async function lookupWord(word: string): Promise<WordData | null> {
   const entries = await fetchDictionaryEntry(word);
+  if (!entries) return null;
   return extractWordData(entries);
 }

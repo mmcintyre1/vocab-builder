@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase/client";
 import { lookupWord } from "@/lib/dictionary/fetch";
-import { buildCards, generateClozeSentence } from "@/lib/cards/generate";
+import { buildCards, generateClozeSentence, generateWordDataFromClaude } from "@/lib/cards/generate";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -78,20 +78,18 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Fetch dictionary data
-      const wordData = await lookupWord(wordStr);
-
-      // Try to get a good cloze sentence
+      // Fetch dictionary data — fall back to Claude for words not in the dictionary
+      let wordData = await lookupWord(wordStr);
       let clozeSentence: string | null = null;
-      if (!wordData.exampleSentence || wordData.exampleSentence.split(" ").length < 8) {
+
+      if (!wordData) {
+        // Word not in dictionary API — Claude generates everything
+        wordData = await generateWordDataFromClaude(wordStr, anthropic);
+      } else if (!wordData.exampleSentence || wordData.exampleSentence.split(" ").length < 8) {
+        // Dictionary entry exists but has no good example sentence
         try {
-          clozeSentence = await generateClozeSentence(
-            wordStr,
-            wordData.definition,
-            anthropic
-          );
+          clozeSentence = await generateClozeSentence(wordStr, wordData.definition, anthropic);
         } catch {
-          // Claude unavailable — fall back to dictionary example
           clozeSentence = wordData.exampleSentence;
         }
       }
