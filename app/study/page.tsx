@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { CardWithWord } from "@/lib/supabase/types";
 
 function getPin(): string {
-  return sessionStorage.getItem("vb_pin") ?? "";
+  return localStorage.getItem("vb_pin") ?? "";
 }
 
 const RATINGS = [

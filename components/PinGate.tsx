@@ -10,7 +10,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(PIN_KEY);
+    const stored = localStorage.getItem(PIN_KEY);
     if (stored) setPin(stored);
   }, []);
 
@@ -20,7 +20,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     e.preventDefault();
     const correct = process.env.NEXT_PUBLIC_APP_PIN;
     if (input === correct) {
-      sessionStorage.setItem(PIN_KEY, input);
+      localStorage.setItem(PIN_KEY, input);
       setPin(input);
     } else {
       setError(true);

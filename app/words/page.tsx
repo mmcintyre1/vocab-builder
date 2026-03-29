@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 function getPin(): string {
-  return sessionStorage.getItem("vb_pin") ?? "";
+  return localStorage.getItem("vb_pin") ?? "";
 }
 
 interface WordRow {
@@ -21,26 +21,30 @@ function dueCount(cards: WordRow["cards"]): number {
   return cards.filter((c) => new Date(c.next_review) <= now).length;
 }
 
+type FilterMode = "tag" | "source";
+
 export default function WordsPage() {
   const [words, setWords] = useState<WordRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterTag, setFilterTag] = useState("");
+  const [filterMode, setFilterMode] = useState<FilterMode>("tag");
+  const [filterValue, setFilterValue] = useState("");
 
   const fetchWords = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (filterTag) params.set("tag", filterTag);
+    if (filterMode === "tag" && filterValue) params.set("tag", filterValue);
+    if (filterMode === "source" && filterValue) params.set("source", filterValue);
     const res = await fetch(`/api/words?${params}`, { headers: { "x-pin": getPin() } });
     const data = await res.json();
     setWords(data);
     setLoading(false);
-  }, [filterTag]);
+  }, [filterMode, filterValue]);
 
   useEffect(() => { fetchWords(); }, [fetchWords]);
 
-  // Collect all unique tags across words
   const allTags = Array.from(new Set(words.flatMap((w) => w.tags))).sort();
+  const allSources = Array.from(new Set(words.map((w) => w.source).filter(Boolean) as string[])).sort();
 
   const filtered = words.filter((w) =>
     w.word.toLowerCase().includes(search.toLowerCase()) ||
@@ -49,6 +53,16 @@ export default function WordsPage() {
 
   const totalDue = words.reduce((n, w) => n + dueCount(w.cards), 0);
 
+  function setFilter(mode: FilterMode, value: string) {
+    if (filterMode === mode && filterValue === value) {
+      // Toggle off
+      setFilterValue("");
+    } else {
+      setFilterMode(mode);
+      setFilterValue(value);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-baseline justify-between">
@@ -56,7 +70,6 @@ export default function WordsPage() {
         <span className="text-sm text-stone-400">{words.length} total · {totalDue} due</span>
       </div>
 
-      {/* Search */}
       <input
         type="search"
         placeholder="Search…"
@@ -65,24 +78,39 @@ export default function WordsPage() {
         className="input-field"
       />
 
-      {/* Tag filter */}
+      {/* Tag filters */}
       {allTags.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setFilterTag("")}
-            className={`tag-chip ${!filterTag ? "tag-chip-active" : ""}`}
-          >
-            All
-          </button>
-          {allTags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => setFilterTag(tag === filterTag ? "" : tag)}
-              className={`tag-chip ${filterTag === tag ? "tag-chip-active" : ""}`}
-            >
-              {tag}
-            </button>
-          ))}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-stone-400 uppercase tracking-widest">Tags</span>
+          <div className="flex gap-2 flex-wrap">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setFilter("tag", tag)}
+                className={`tag-chip ${filterMode === "tag" && filterValue === tag ? "tag-chip-active" : ""}`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Source filters */}
+      {allSources.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-stone-400 uppercase tracking-widest">Sources</span>
+          <div className="flex gap-2 flex-wrap">
+            {allSources.map((source) => (
+              <button
+                key={source}
+                onClick={() => setFilter("source", source)}
+                className={`tag-chip ${filterMode === "source" && filterValue === source ? "tag-chip-active" : ""}`}
+              >
+                {source}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -90,7 +118,9 @@ export default function WordsPage() {
       {loading ? (
         <p className="text-stone-400 text-sm text-center py-8">Loading…</p>
       ) : filtered.length === 0 ? (
-        <p className="text-stone-400 text-sm text-center py-8">No words yet. <Link href="/add" className="underline underline-offset-2">Add some →</Link></p>
+        <p className="text-stone-400 text-sm text-center py-8">
+          No words yet. <Link href="/add" className="underline underline-offset-2">Add some →</Link>
+        </p>
       ) : (
         <ul className="flex flex-col divide-y divide-stone-100">
           {filtered.map((w) => {
@@ -103,9 +133,9 @@ export default function WordsPage() {
                 >
                   <div className="flex flex-col gap-0.5 min-w-0">
                     <span className="font-medium text-stone-800 truncate">{w.word}</span>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap items-center">
                       {w.source && (
-                        <span className="text-xs text-stone-400">{w.source}</span>
+                        <span className="text-xs text-stone-400 italic">{w.source}</span>
                       )}
                       {w.tags.map((t) => (
                         <span key={t} className="text-xs bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">

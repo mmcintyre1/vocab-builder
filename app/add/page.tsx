@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import TagInput from "@/components/TagInput";
 
 type Mode = "single" | "bulk";
 
@@ -13,7 +14,7 @@ interface Result {
 }
 
 function getPin(): string {
-  return sessionStorage.getItem("vb_pin") ?? "";
+  return localStorage.getItem("vb_pin") ?? "";
 }
 
 export default function AddPage() {
@@ -23,6 +24,7 @@ export default function AddPage() {
   // Single mode
   const [word, setWord] = useState("");
   const [source, setSource] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
   // Bulk mode
@@ -31,6 +33,23 @@ export default function AddPage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const [errors, setErrors] = useState<Result[]>([]);
+
+  // Existing tags + sources for suggestions
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [allSources, setAllSources] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadMeta() {
+      const res = await fetch("/api/words", { headers: { "x-pin": getPin() } });
+      if (!res.ok) return;
+      const data: { tags: string[]; source: string | null }[] = await res.json();
+      setAllTags(Array.from(new Set(data.flatMap((w) => w.tags))).sort());
+      setAllSources(
+        Array.from(new Set(data.map((w) => w.source).filter(Boolean) as string[])).sort()
+      );
+    }
+    loadMeta();
+  }, []);
 
   async function handleSingleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +61,12 @@ export default function AddPage() {
     const res = await fetch("/api/words", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ word: word.trim(), source: source.trim() || null, notes: notes.trim() || null }),
+      body: JSON.stringify({
+        word: word.trim(),
+        source: source.trim() || null,
+        tags,
+        notes: notes.trim() || null,
+      }),
     });
     const data = await res.json();
     setResults(data.results ?? []);
@@ -51,6 +75,7 @@ export default function AddPage() {
     if ((data.results ?? []).length > 0) {
       setWord("");
       setSource("");
+      setTags([]);
       setNotes("");
     }
   }
@@ -113,13 +138,21 @@ export default function AddPage() {
             autoCorrect="off"
             spellCheck={false}
           />
-          <input
-            type="text"
-            placeholder="Source (optional) — e.g. Moby Dick"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="input-field"
-          />
+          {/* Source with datalist for suggestions */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Source (optional) — e.g. Moby Dick"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="input-field"
+              list="source-suggestions"
+            />
+            <datalist id="source-suggestions">
+              {allSources.map((s) => <option key={s} value={s} />)}
+            </datalist>
+          </div>
+          <TagInput value={tags} onChange={setTags} suggestions={allTags} />
           <textarea
             placeholder="Notes (optional)"
             value={notes}

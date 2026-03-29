@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
+import TagInput from "@/components/TagInput";
 
 function getPin(): string {
-  return sessionStorage.getItem("vb_pin") ?? "";
+  return localStorage.getItem("vb_pin") ?? "";
 }
 
 interface Card {
@@ -30,53 +31,53 @@ interface Word {
 
 const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology"];
 
+async function patchWord(id: string, update: Record<string, unknown>) {
+  const res = await fetch(`/api/words/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "x-pin": getPin() },
+    body: JSON.stringify(update),
+  });
+  return res.json();
+}
+
 export default function WordDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [word, setWord] = useState<Word | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Edit state
-  const [editingSource, setEditingSource] = useState(false);
-  const [sourceInput, setSourceInput] = useState("");
-  const [editingTags, setEditingTags] = useState(false);
-  const [tagsInput, setTagsInput] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [allSources, setAllSources] = useState<string[]>([]);
 
   useEffect(() => {
     async function load() {
-      // Fetch all words and find by id (no single-word endpoint needed)
       const res = await fetch("/api/words", { headers: { "x-pin": getPin() } });
       const data: Word[] = await res.json();
+      setAllTags(Array.from(new Set(data.flatMap((w) => w.tags))).sort());
+      setAllSources(
+        Array.from(new Set(data.map((w) => w.source).filter(Boolean) as string[])).sort()
+      );
       const found = data.find((w) => w.id === id);
-      if (found) {
-        setWord(found);
-        setSourceInput(found.source ?? "");
-        setTagsInput(found.tags.join(", "));
-      }
+      if (found) setWord(found);
       setLoading(false);
     }
     load();
   }, [id]);
 
-  async function saveField(field: "source" | "tags") {
+  // Tags: save on change
+  async function handleTagsChange(tags: string[]) {
     if (!word) return;
-    setSaving(true);
-    const update =
-      field === "source"
-        ? { source: sourceInput.trim() || null }
-        : { tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean) };
+    setWord((prev) => prev ? { ...prev, tags } : prev);
+    await patchWord(word.id, { tags });
+  }
 
-    const res = await fetch(`/api/words/${word.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify(update),
-    });
-    const updated = await res.json();
-    setWord((prev) => prev ? { ...prev, ...updated } : prev);
-    if (field === "source") setEditingSource(false);
-    if (field === "tags") setEditingTags(false);
-    setSaving(false);
+  // Source: save on blur
+  const sourceRef = useRef<HTMLInputElement>(null);
+  async function handleSourceBlur() {
+    if (!word) return;
+    const val = sourceRef.current?.value.trim() || null;
+    if (val === word.source) return;
+    setWord((prev) => prev ? { ...prev, source: val } : prev);
+    await patchWord(word.id, { source: val });
   }
 
   async function handleDelete() {
@@ -107,56 +108,29 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Metadata */}
       <div className="flex flex-col gap-3 bg-stone-50 rounded-xl p-4 text-sm">
-        {/* Source */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-stone-400 w-14 shrink-0">Source</span>
-          {editingSource ? (
-            <div className="flex gap-2 flex-1">
-              <input
-                className="input-field flex-1 text-sm py-1"
-                value={sourceInput}
-                onChange={(e) => setSourceInput(e.target.value)}
-                placeholder="e.g. Moby Dick"
-                autoFocus
-              />
-              <button onClick={() => saveField("source")} disabled={saving} className="text-stone-600 font-medium">Save</button>
-              <button onClick={() => setEditingSource(false)} className="text-stone-400">Cancel</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setEditingSource(true)}
-              className="text-stone-600 hover:underline underline-offset-2"
-            >
-              {word.source ?? <span className="text-stone-300 italic">none — tap to add</span>}
-            </button>
-          )}
+          <div className="flex-1 relative">
+            <input
+              ref={sourceRef}
+              type="text"
+              defaultValue={word.source ?? ""}
+              onBlur={handleSourceBlur}
+              placeholder="none"
+              className="w-full bg-transparent outline-none text-stone-700 placeholder:text-stone-300 border-b border-transparent focus:border-stone-300 pb-0.5 transition-colors"
+              list="source-suggestions"
+            />
+            <datalist id="source-suggestions">
+              {allSources.map((s) => <option key={s} value={s} />)}
+            </datalist>
+          </div>
         </div>
 
-        {/* Tags */}
-        <div className="flex items-start gap-2">
-          <span className="text-stone-400 w-14 shrink-0 pt-0.5">Tags</span>
-          {editingTags ? (
-            <div className="flex gap-2 flex-1">
-              <input
-                className="input-field flex-1 text-sm py-1"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="comma-separated tags"
-                autoFocus
-              />
-              <button onClick={() => saveField("tags")} disabled={saving} className="text-stone-600 font-medium">Save</button>
-              <button onClick={() => setEditingTags(false)} className="text-stone-400">Cancel</button>
-            </div>
-          ) : (
-            <button onClick={() => setEditingTags(true)} className="flex flex-wrap gap-1">
-              {word.tags.length > 0
-                ? word.tags.map((t) => (
-                    <span key={t} className="bg-stone-200 text-stone-600 px-2 py-0.5 rounded text-xs">{t}</span>
-                  ))
-                : <span className="text-stone-300 italic text-sm">none — tap to add</span>
-              }
-            </button>
-          )}
+        <div className="flex items-start gap-3">
+          <span className="text-stone-400 w-14 shrink-0 pt-2">Tags</span>
+          <div className="flex-1">
+            <TagInput value={word.tags} onChange={handleTagsChange} suggestions={allTags} />
+          </div>
         </div>
       </div>
 
@@ -194,7 +168,6 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
         })}
       </div>
 
-      {/* Delete */}
       <button
         onClick={handleDelete}
         className="text-sm text-red-400 hover:text-red-600 text-center py-2 transition-colors"
