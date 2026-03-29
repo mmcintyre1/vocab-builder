@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.safe-area-pb {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.input-field {
+  @apply w-full border border-stone-200 rounded-lg px-3 py-2.5 text-stone-800 bg-white outline-none focus:ring-2 focus:ring-stone-300 placeholder:text-stone-300 transition-shadow;
+}
+
+.btn-primary {
+  @apply w-full py-3 bg-stone-800 text-white rounded-xl font-medium text-sm hover:bg-stone-700 active:bg-stone-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.tag-chip {
+  @apply px-3 py-1 rounded-full text-xs border border-stone-200 text-stone-500 bg-white hover:bg-stone-50 transition-colors;
+}
+
+.tag-chip-active {
+  @apply bg-stone-800 text-white border-stone-800;
+}
