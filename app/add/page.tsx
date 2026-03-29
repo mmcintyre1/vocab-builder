@@ -178,7 +178,7 @@ export default function AddPage() {
               type="text"
               placeholder="Word"
               value={word}
-              onChange={(e) => { setWord(e.target.value); setPreview(null); }}
+              onChange={(e) => { setWord(e.target.value.toLowerCase()); setPreview(null); }}
               className="input-field text-base"
               autoFocus
               autoCapitalize="none"
