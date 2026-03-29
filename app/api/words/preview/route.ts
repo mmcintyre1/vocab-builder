@@ -6,6 +6,9 @@ import { generateCardExtras, generateWordDataFromClaude, buildCards } from "@/li
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Module-level counter — resets on cold start, fine for personal use
+let previewToday = { date: "", count: 0 };
+
 // POST /api/words/preview — look up a word and return card previews without saving
 // Body: { word: string }
 export async function POST(request: NextRequest) {
@@ -14,6 +17,15 @@ export async function POST(request: NextRequest) {
 
   const { word: wordStr } = await request.json();
   if (!wordStr?.trim()) return NextResponse.json({ error: "word required" }, { status: 400 });
+
+  // Daily preview rate limit
+  const maxPreviews = parseInt(process.env.MAX_PREVIEWS_PER_DAY ?? "60");
+  const today = new Date().toISOString().slice(0, 10);
+  if (previewToday.date !== today) previewToday = { date: today, count: 0 };
+  if (previewToday.count >= maxPreviews) {
+    return NextResponse.json({ error: "Daily preview limit reached" }, { status: 429 });
+  }
+  previewToday.count++;
 
   const normalized = wordStr.trim().toLowerCase();
 
