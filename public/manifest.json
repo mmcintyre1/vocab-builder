@@ -2,7 +2,7 @@
   "name": "Vocab Builder",
   "short_name": "Vocab",
   "description": "Personal vocabulary builder with spaced repetition",
-  "start_url": "/study",
+  "start_url": "/add",
   "display": "standalone",
   "background_color": "#fafaf9",
   "theme_color": "#1c1917",

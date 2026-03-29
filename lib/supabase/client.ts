@@ -1,19 +1,24 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-let _client: SupabaseClient | null = null;
+// We don't use Supabase's generated types, so keep generics loose
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type VocabClient = SupabaseClient<any, any>;
 
-export function getSupabase(): SupabaseClient {
+let _client: VocabClient | null = null;
+
+export function getSupabase(): VocabClient {
   if (!_client) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) throw new Error("Missing Supabase env vars");
-    _client = createClient(url, key);
+    _client = createClient(url, key, { db: { schema: "vocab" } });
   }
   return _client;
 }
 
 // Convenience alias for API routes
-export const supabase = new Proxy({} as SupabaseClient, {
+export const supabase = new Proxy({} as VocabClient, {
   get(_target, prop) {
     return (getSupabase() as unknown as Record<string | symbol, unknown>)[prop];
   },
