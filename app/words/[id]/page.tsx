@@ -14,6 +14,7 @@ interface Card {
   back: string;
   reps: number;
   lapses: number;
+  last_review: string | null;
   next_review: string;
   stability: number;
 }
@@ -28,6 +29,129 @@ interface Word {
 }
 
 const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology"];
+const TYPE_LABEL: Record<string, string> = {
+  definition: "Definition",
+  pronunciation: "Pronunciation",
+  cloze: "Fill in",
+  etymology: "Etymology",
+};
+
+function formatReviewStats(card: Card): string {
+  const due = new Date(card.next_review) <= new Date();
+  const parts: string[] = [];
+
+  if (card.reps === 0 && card.lapses === 0) {
+    return "never reviewed · due now";
+  }
+
+  const total = card.reps + card.lapses;
+  parts.push(`${total} review${total !== 1 ? "s" : ""}`);
+
+  if (card.last_review) {
+    const d = new Date(card.last_review);
+    parts.push(`last ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`);
+  }
+
+  if (due) {
+    parts.push("due now");
+  } else {
+    const next = new Date(card.next_review);
+    parts.push(`next ${next.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`);
+  }
+
+  return parts.join(" · ");
+}
+
+function CardRow({ card, allSources: _allSources, onUpdate }: {
+  card: Card;
+  allSources: string[];
+  onUpdate: (id: string, updates: Partial<Card>) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [front, setFront] = useState(card.front);
+  const [back, setBack] = useState(card.back.replace(/\[audio:[^\]]+\]/, "").trim());
+  const [saving, setSaving] = useState(false);
+
+  const due = new Date(card.next_review) <= new Date();
+
+  async function handleSave() {
+    setSaving(true);
+    const res = await fetch(`/api/cards/${card.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-pin": localStorage.getItem("vb_pin") ?? "" },
+      body: JSON.stringify({ front, back }),
+    });
+    const updated = await res.json();
+    onUpdate(card.id, { front: updated.front, back: updated.back });
+    setSaving(false);
+    setEditing(false);
+  }
+
+  function handleCancel() {
+    setFront(card.front);
+    setBack(card.back.replace(/\[audio:[^\]]+\]/, "").trim());
+    setEditing(false);
+  }
+
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-1">
+        <span className={`text-xs font-medium uppercase tracking-wide ${due ? "text-amber-600" : "text-stone-400"}`}>
+          {TYPE_LABEL[card.type] ?? card.type}
+        </span>
+        <button
+          onClick={() => setEditing((e) => !e)}
+          className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
+        >
+          {editing ? "cancel" : "edit"}
+        </button>
+      </div>
+
+      {editing ? (
+        <div className="px-4 pb-4 flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-stone-400">Front</label>
+            <textarea
+              value={front}
+              onChange={(e) => setFront(e.target.value)}
+              rows={2}
+              className="input-field resize-none text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-stone-400">Back</label>
+            <textarea
+              value={back}
+              onChange={(e) => setBack(e.target.value)}
+              rows={3}
+              className="input-field resize-none text-sm"
+            />
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button onClick={handleCancel} className="text-sm text-stone-400 text-center">
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="px-4 pb-3 flex flex-col gap-2">
+          <p className="text-sm text-stone-800 leading-relaxed">{card.front}</p>
+          <p className="text-sm text-stone-500 border-t border-stone-100 pt-2 leading-relaxed">
+            {card.back.replace(/\[audio:[^\]]+\]/, "").trim()}
+          </p>
+          <p className="text-xs text-stone-300 pt-1">{formatReviewStats(card)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function WordDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -39,10 +163,10 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     async function load() {
-      const res = await fetch("/api/words", { headers: { "x-pin": getPin() } });
-      const data: Word[] = await res.json();
+      const res = await fetch("/api/words", { headers: { "x-pin": localStorage.getItem("vb_pin") ?? "" } });
+      const data: any[] = await res.json();
       setAllSources(
-        Array.from(new Set(data.map((w: any) => w.source).filter(Boolean) as string[])).sort()
+        Array.from(new Set(data.map((w) => w.source).filter(Boolean) as string[])).sort()
       );
       const found = data.find((w) => w.id === id);
       if (found) setWord(found);
@@ -51,6 +175,14 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
     load();
   }, [id]);
 
+  function updateCard(cardId: string, updates: Partial<Card>) {
+    setWord((prev) =>
+      prev
+        ? { ...prev, cards: prev.cards.map((c) => c.id === cardId ? { ...c, ...updates } : c) }
+        : prev
+    );
+  }
+
   async function handleSourceBlur() {
     if (!word) return;
     const val = sourceRef.current?.value.trim() || null;
@@ -58,7 +190,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
     setWord((prev) => prev ? { ...prev, source: val } : prev);
     await fetch(`/api/words/${word.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      headers: { "Content-Type": "application/json", "x-pin": localStorage.getItem("vb_pin") ?? "" },
       body: JSON.stringify({ source: val }),
     });
   }
@@ -68,7 +200,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
     if (!confirm(`Delete "${word.word}" and all its cards?`)) return;
     await fetch(`/api/words/${word.id}`, {
       method: "DELETE",
-      headers: { "x-pin": getPin() },
+      headers: { "x-pin": localStorage.getItem("vb_pin") ?? "" },
     });
     router.push("/words");
   }
@@ -109,34 +241,17 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-stone-400 uppercase tracking-widest">Cards</h2>
-        {sortedCards.map((card) => {
-          const due = new Date(card.next_review) <= new Date();
-          const nextReviewDate = new Date(card.next_review).toLocaleDateString("en-US", {
-            month: "short", day: "numeric",
-          });
-          return (
-            <div key={card.id} className="bg-white border border-stone-200 rounded-xl p-4 flex flex-col gap-2 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-stone-400 uppercase tracking-wide">
-                  {card.type}
-                </span>
-                <span className={`text-xs ${due ? "text-amber-600" : "text-stone-300"}`}>
-                  {due ? "due" : `next: ${nextReviewDate}`}
-                </span>
-              </div>
-              <p className="text-sm text-stone-700 leading-relaxed">{card.front}</p>
-              <p className="text-sm text-stone-400 border-t border-stone-100 pt-2 leading-relaxed">
-                {(card.back ?? "").replace(/\[audio:[^\]]+\]/, "").trim()}
-              </p>
-              <div className="flex gap-3 text-xs text-stone-300">
-                <span>{card.reps} reps</span>
-                <span>{card.lapses} lapses</span>
-                {card.stability > 0 && <span>stability {card.stability.toFixed(1)}d</span>}
-              </div>
-            </div>
-          );
-        })}
+        <h2 className="text-sm font-medium text-stone-400 uppercase tracking-widest">
+          Cards ({sortedCards.length})
+        </h2>
+        {sortedCards.map((card) => (
+          <CardRow
+            key={card.id}
+            card={card}
+            allSources={allSources}
+            onUpdate={updateCard}
+          />
+        ))}
       </div>
 
       <button
