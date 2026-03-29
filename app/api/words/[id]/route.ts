@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase/client";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 
+// GET /api/words/[id] — fetch single word with full card data
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const pin = getPinFromRequest(request);
+  if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { data, error } = await supabase
+    .from("words")
+    .select("*, cards(*)")
+    .eq("id", id)
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
 // PATCH /api/words/[id] — update source, tags, notes
 export async function PATCH(
   request: NextRequest,

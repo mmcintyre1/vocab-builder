@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Vocab",
   },
 };
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1c1917",
+  themeColor: "#0f0e0d",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -27,10 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ServiceWorkerRegistration />
         <PinGate>
-          <main className="max-w-lg mx-auto px-4 pt-6 pb-24">
+          <Nav />
+          <main className="max-w-lg mx-auto px-4 pt-20 pb-8">
             {children}
           </main>
-          <Nav />
         </PinGate>
       </body>
     </html>
