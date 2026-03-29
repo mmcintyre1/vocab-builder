@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 const links = [
   {
@@ -36,6 +37,14 @@ const links = [
 
 export default function Nav() {
   const pathname = usePathname();
+  const [dueCount, setDueCount] = useState(0);
+
+  useEffect(() => {
+    const pin = localStorage.getItem("vb_pin") ?? "";
+    fetch("/api/stats", { headers: { "x-pin": pin } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setDueCount(d.dueNow); });
+  }, [pathname]);
 
   return (
     <nav
@@ -65,7 +74,17 @@ export default function Nav() {
                 background: "transparent",
               }}
             >
-              <span style={{ opacity: active ? 1 : 0.5 }}>{icon}</span>
+              <span className="relative" style={{ opacity: active ? 1 : 0.5 }}>
+                {icon}
+                {href === "/study" && dueCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 flex items-center justify-center rounded-full font-bold"
+                    style={{ width: 14, height: 14, fontSize: 9, background: "var(--accent)", color: "var(--bg)" }}
+                  >
+                    {dueCount > 99 ? "9+" : dueCount}
+                  </span>
+                )}
+              </span>
               {label}
             </Link>
           );
