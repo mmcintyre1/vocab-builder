@@ -40,12 +40,13 @@ export async function GET(request: NextRequest) {
     .select("reviewed_at")
     .order("reviewed_at", { ascending: false });
 
+  const uniqueDays = reviewDays
+    ? Array.from(new Set(reviewDays.map((r) => r.reviewed_at.slice(0, 10))))
+    : [];
+
+  // Streak: count consecutive days with at least one review
   let streak = 0;
-  if (reviewDays && reviewDays.length > 0) {
-    const uniqueDays = Array.from(
-      new Set(reviewDays.map((r) => r.reviewed_at.slice(0, 10)))
-    );
-    // Check if today or yesterday was a review day (streak still active)
+  if (uniqueDays.length > 0) {
     const todayStr = now.toISOString().slice(0, 10);
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -67,11 +68,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Last 7 days activity (oldest → newest)
+  const last7Days: boolean[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    last7Days.push(uniqueDays.includes(d.toISOString().slice(0, 10)));
+  }
+
   return NextResponse.json({
     reviewedToday: reviewedToday ?? 0,
     totalReviews: totalReviews ?? 0,
     totalWords: totalWords ?? 0,
     dueNow: dueNow ?? 0,
     streak,
+    last7Days,
   });
 }
