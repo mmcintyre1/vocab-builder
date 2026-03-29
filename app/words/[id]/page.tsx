@@ -238,21 +238,26 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>{word.word}</h1>
-        <div className="flex items-center gap-3 pt-1">
-          <span className="text-xs" style={{ color: "var(--text-faint)" }}>
-            {new Date(word.added_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </span>
+      <div className="flex flex-col gap-2 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="flex items-start justify-between gap-3">
+          <h1
+            className="font-semibold tracking-tight leading-none"
+            style={{ color: "var(--text)", fontSize: "clamp(2.2rem, 10vw, 3.5rem)" }}
+          >
+            {word.word}
+          </h1>
           <button
             onClick={handleDelete}
-            className="transition-colors hover:text-red-400"
+            className="transition-colors hover:text-red-400 mt-1 shrink-0"
             style={{ color: "var(--text)" }}
             aria-label="Delete word"
           >
             <TrashIcon />
           </button>
         </div>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Added {new Date(word.added_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+        </span>
       </div>
 
       {/* Source */}
