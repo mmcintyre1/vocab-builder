@@ -29,25 +29,27 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 items-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-stone-800">vocab</h1>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--bg)" }}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full max-w-xs">
+        <div className="text-center mb-2">
+          <h1 className="text-3xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>vocab</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Enter your PIN to continue</p>
+        </div>
         <input
           type="password"
           inputMode="numeric"
           placeholder="PIN"
           value={input}
           onChange={(e) => { setInput(e.target.value); setError(false); }}
-          className={`w-32 text-center border rounded-lg px-3 py-2 text-lg tracking-widest outline-none focus:ring-2 focus:ring-stone-400 ${
-            error ? "border-red-400 bg-red-50" : "border-stone-300 bg-white"
-          }`}
+          className="input-field text-center text-lg tracking-widest"
+          style={{
+            border: `1px solid ${error ? "#f87171" : "var(--border)"}`,
+            boxShadow: error ? "0 0 0 2px color-mix(in srgb, #f87171 20%, transparent)" : undefined,
+          }}
           autoFocus
         />
-        {error && <p className="text-sm text-red-500">Incorrect PIN</p>}
-        <button
-          type="submit"
-          className="px-6 py-2 bg-stone-800 text-white rounded-lg text-sm font-medium hover:bg-stone-700 transition-colors"
-        >
+        {error && <p className="text-sm text-center -mt-1" style={{ color: "#f87171" }}>Incorrect PIN</p>}
+        <button type="submit" className="btn-primary">
           Enter
         </button>
       </form>
