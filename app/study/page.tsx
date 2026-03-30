@@ -145,45 +145,6 @@ export default function StudyPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealed, card, submitting]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center gap-3">
-          <div className="skeleton flex-1 h-1 rounded-full" />
-          <div className="skeleton h-3 w-12 rounded" />
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="skeleton h-3 w-20 rounded" />
-          <div className="skeleton h-3 w-16 rounded" />
-        </div>
-        <div className="rounded-2xl p-6 min-h-[220px] flex flex-col items-center justify-center gap-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-          <div className="skeleton h-5 rounded w-3/4" />
-          <div className="skeleton h-4 rounded w-1/2" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!card) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-muted)" }}>
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-        <h2 className="text-xl font-semibold" style={{ color: "var(--text)" }}>All caught up</h2>
-        {sessionCount > 0 && (
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            {sessionCount} card{sessionCount !== 1 ? "s" : ""} reviewed this session
-          </p>
-        )}
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>No cards due right now.</p>
-        <Link href="/add" className="mt-2 text-sm underline underline-offset-2" style={{ color: "var(--text-muted)" }}>
-          Add new words →
-        </Link>
-      </div>
-    );
-  }
-
   const remaining = cards.length - index;
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -212,30 +173,67 @@ export default function StudyPage() {
     else if (dx > SWIPE_MIN) handleRating(4);   // Easy
   }
 
-  const pct = (index / cards.length) * 100;
+  const pct = cards.length > 0 ? (index / cards.length) * 100 : 0;
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Progress bar — fixed under nav, always visible on mobile */}
-      <div
-        className="fixed left-0 right-0 z-40"
-        style={{ top: 56 }} /* height of nav */
-      >
-        <div className="h-0.5 w-full" style={{ background: "var(--border)" }}>
+      {/* Progress bar — fixed directly under nav, always rendered */}
+      <div className="fixed left-0 right-0" style={{ top: 56, zIndex: 49 }}>
+        {/* Track */}
+        <div className="h-1 w-full" style={{ background: "var(--border-subtle)" }}>
           <div
-            className={`h-0.5 transition-all duration-500 ease-out${progressPulse ? " progress-pulse" : ""}`}
+            className={`h-1 transition-all duration-500 ease-out${progressPulse ? " progress-pulse" : ""}`}
             style={{ background: "var(--accent-fg)", width: `${pct}%` }}
             onAnimationEnd={() => setProgressPulse(false)}
           />
         </div>
-        <div className="flex justify-between px-4 pt-1 text-xs tabular-nums" style={{ color: "var(--text-faint)" }}>
-          <span>{index} of {cards.length}</span>
-          <span>{remaining} left</span>
-        </div>
+        {/* Labels — only shown when studying */}
+        {!loading && card && (
+          <div
+            className="flex justify-between px-4 pt-1 text-xs tabular-nums"
+            style={{ color: "var(--text-muted)", background: "var(--bg)" }}
+          >
+            <span>{index} of {cards.length}</span>
+            <span>{remaining} left</span>
+          </div>
+        )}
       </div>
 
-      {/* Spacer so content doesn't hide under fixed bar */}
-      <div style={{ height: 24 }} />
+      {/* Spacer for fixed bar */}
+      <div style={{ height: loading || !card ? 4 : 28 }} />
+
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <div className="skeleton h-3 w-20 rounded" />
+            <div className="skeleton h-3 w-16 rounded" />
+          </div>
+          <div className="rounded-2xl p-6 min-h-[220px] flex flex-col items-center justify-center gap-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <div className="skeleton h-5 rounded w-3/4" />
+            <div className="skeleton h-4 rounded w-1/2" />
+          </div>
+        </div>
+      )}
+
+      {/* All caught up */}
+      {!loading && !card && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-muted)" }}>
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          <h2 className="text-xl font-semibold" style={{ color: "var(--text)" }}>All caught up</h2>
+          {sessionCount > 0 && (
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {sessionCount} card{sessionCount !== 1 ? "s" : ""} reviewed this session
+            </p>
+          )}
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>No cards due right now.</p>
+          <Link href="/add" className="mt-2 text-sm underline underline-offset-2" style={{ color: "var(--text-muted)" }}>
+            Add new words →
+          </Link>
+        </div>
+      )}
 
       {/* Undo toast */}
       {undoCard && (
@@ -247,75 +245,78 @@ export default function StudyPage() {
         </div>
       )}
 
-      {/* Meta */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-          {TYPE_LABEL[card.type] ?? card.type}
-        </span>
-        {card.words?.source && (
-          <span className="text-xs" style={{ color: "var(--text-faint)" }}>{card.words.source}</span>
-        )}
-      </div>
-
-      {/* Card */}
-      <div
-        className="relative min-h-[220px] flex items-center justify-center rounded-2xl p-6 cursor-pointer select-none"
-        style={{
-          background: "var(--surface)",
-          border: `1px solid ${swipeHint === "again" ? "color-mix(in srgb, #dc2626 50%, var(--border))" : swipeHint === "easy" ? "color-mix(in srgb, #2563eb 50%, var(--border))" : "var(--border)"}`,
-          transform: revealed ? `translateX(${Math.max(-30, Math.min(30, dragX * 0.3))}px)` : "none",
-          transition: dragX === 0 ? "transform 0.2s ease, border-color 0.15s" : "border-color 0.15s",
-        }}
-        onClick={() => !revealed && setRevealed(true)}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Swipe hint overlay */}
-        {swipeHint === "again" && (
-          <div className="absolute top-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, #dc2626 20%, transparent)", color: "#fca5a5" }}>Again ←</div>
-        )}
-        {swipeHint === "easy" && (
-          <div className="absolute top-3 left-3 text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, #2563eb 20%, transparent)", color: "#93c5fd" }}>→ Easy</div>
-        )}
-
-        <div className="flex flex-col items-center gap-5 w-full">
-          <p className="text-lg text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>
-            {card.front}
-          </p>
-          {revealed ? (
-            <div className="card-reveal w-full pt-4 text-center" style={{ borderTop: "1px solid var(--border)" }}>
-              {renderBack(card)}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>tap to reveal</p>
-          )}
-        </div>
-      </div>
-
-      {/* Rating buttons */}
-      {revealed && (
-        <div className="rating-reveal flex flex-col gap-2">
-          <div className="grid grid-cols-4 gap-2">
-            {RATINGS.map(({ value, label, style }) => (
-              <button
-                key={value}
-                onClick={() => handleRating(value)}
-                disabled={submitting}
-                className="py-3 rounded-xl text-sm font-medium transition-opacity disabled:opacity-40"
-                style={style}
-              >
-                {label}
-              </button>
-            ))}
+      {/* Card content — only when loaded */}
+      {!loading && card && (
+        <>
+          {/* Meta */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              {TYPE_LABEL[card.type] ?? card.type}
+            </span>
+            {card.words?.source && (
+              <span className="text-xs" style={{ color: "var(--text-faint)" }}>{card.words.source}</span>
+            )}
           </div>
-          <p className="text-xs text-center" style={{ color: "var(--text-faint)" }}>
-            ← swipe again · swipe easy →
-          </p>
-          <p className="hidden sm:block text-xs text-center" style={{ color: "var(--text-faint)" }}>
-            keys: 1 again · 2 hard · 3 good · 4 easy · space reveal
-          </p>
-        </div>
+
+          {/* Card */}
+          <div
+            className="relative min-h-[220px] flex items-center justify-center rounded-2xl p-6 cursor-pointer select-none"
+            style={{
+              background: "var(--surface)",
+              border: `1px solid ${swipeHint === "again" ? "color-mix(in srgb, #dc2626 50%, var(--border))" : swipeHint === "easy" ? "color-mix(in srgb, #2563eb 50%, var(--border))" : "var(--border)"}`,
+              transform: revealed ? `translateX(${Math.max(-30, Math.min(30, dragX * 0.3))}px)` : "none",
+              transition: dragX === 0 ? "transform 0.2s ease, border-color 0.15s" : "border-color 0.15s",
+            }}
+            onClick={() => !revealed && setRevealed(true)}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {swipeHint === "again" && (
+              <div className="absolute top-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, #dc2626 20%, transparent)", color: "#fca5a5" }}>Again ←</div>
+            )}
+            {swipeHint === "easy" && (
+              <div className="absolute top-3 left-3 text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, #2563eb 20%, transparent)", color: "#93c5fd" }}>→ Easy</div>
+            )}
+            <div className="flex flex-col items-center gap-5 w-full">
+              <p className="text-lg text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>
+                {card.front}
+              </p>
+              {revealed ? (
+                <div className="card-reveal w-full pt-4 text-center" style={{ borderTop: "1px solid var(--border)" }}>
+                  {renderBack(card)}
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>tap to reveal</p>
+              )}
+            </div>
+          </div>
+
+          {/* Rating buttons */}
+          {revealed && (
+            <div className="rating-reveal flex flex-col gap-2">
+              <div className="grid grid-cols-4 gap-2">
+                {RATINGS.map(({ value, label, style }) => (
+                  <button
+                    key={value}
+                    onClick={() => handleRating(value)}
+                    disabled={submitting}
+                    className="py-3 rounded-xl text-sm font-medium transition-opacity disabled:opacity-40"
+                    style={style}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-center" style={{ color: "var(--text-faint)" }}>
+                ← swipe again · swipe easy →
+              </p>
+              <p className="hidden sm:block text-xs text-center" style={{ color: "var(--text-faint)" }}>
+                keys: 1 again · 2 hard · 3 good · 4 easy · space reveal
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
