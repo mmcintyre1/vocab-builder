@@ -27,6 +27,8 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 }
 
 function StreakCard({ streak, last7Days }: { streak: number; last7Days: boolean[] }) {
+  // Reverse so today is leftmost — streak tallies left to right
+  const dots = [...last7Days].reverse();
   return (
     <div className="flex flex-col gap-1 rounded-xl px-4 py-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Streak</span>
@@ -34,7 +36,7 @@ function StreakCard({ streak, last7Days }: { streak: number; last7Days: boolean[
         {streak === 0 ? "—" : `${streak}d`}
       </span>
       <div className="flex gap-1 mt-1">
-        {last7Days.map((active, i) => (
+        {dots.map((active, i) => (
           <div
             key={i}
             className="rounded-full"
@@ -61,8 +63,12 @@ export default function StatsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="skeleton h-6 w-24 rounded" />
+      <div className="flex flex-col gap-6">
+        <div>
+          <div className="skeleton h-8 w-20 rounded mb-1" />
+          <div className="skeleton h-4 w-32 rounded" />
+        </div>
+        <div className="skeleton h-14 rounded-xl" />
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="skeleton h-24 rounded-xl" />
@@ -76,8 +82,26 @@ export default function StatsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>Stats</h1>
+      {/* Home header */}
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>vocab</h1>
+        <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
+          {stats.totalWords} word{stats.totalWords !== 1 ? "s" : ""} · {stats.totalReviews} reviews
+        </p>
+      </div>
 
+      {/* Primary CTA — always visible, dimmed when nothing due */}
+      <Link
+        href="/study"
+        className="btn-primary text-center block"
+        style={stats.dueNow === 0 ? { opacity: 0.4, pointerEvents: "none" } : {}}
+      >
+        {stats.dueNow > 0
+          ? `Study ${stats.dueNow} due card${stats.dueNow !== 1 ? "s" : ""} →`
+          : "All caught up"}
+      </Link>
+
+      {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
         <StreakCard streak={stats.streak} last7Days={stats.last7Days} />
         <StatCard
@@ -96,12 +120,6 @@ export default function StatsPage() {
           sub={`${stats.totalReviews} total reviews`}
         />
       </div>
-
-      {stats.dueNow > 0 && (
-        <Link href="/study" className="btn-primary text-center block">
-          Study {stats.dueNow} due card{stats.dueNow !== 1 ? "s" : ""} →
-        </Link>
-      )}
     </div>
   );
 }
