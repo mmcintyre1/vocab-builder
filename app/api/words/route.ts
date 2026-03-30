@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase/client";
-import { lookupWord } from "@/lib/dictionary/fetch";
-import { buildCards, generateCardExtras, generateWordDataFromClaude } from "@/lib/cards/generate";
+import { buildCards, generateWordData } from "@/lib/cards/generate";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -78,24 +77,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Fetch dictionary data — fall back to Claude for words not in the dictionary
-      let wordData = await lookupWord(wordStr);
-      let clozeSentence: string | null = null;
-
-      if (!wordData) {
-        // Word not in dictionary API — Claude generates everything including phonetic
-        wordData = await generateWordDataFromClaude(wordStr, anthropic);
-      } else {
-        // Dictionary entry exists — Claude generates phonetic + cloze in one call
-        try {
-          const extras = await generateCardExtras(wordStr, wordData.definition, anthropic);
-          clozeSentence = extras.clozeSentence;
-          wordData = { ...wordData, simplePhonetic: extras.simplePhonetic };
-        } catch {
-          // Claude unavailable — fall back to dictionary example, no phonetic card
-          clozeSentence = wordData.exampleSentence;
-        }
-      }
+      const wordData = await generateWordData(wordStr, anthropic);
 
       // Insert word
       const { data: word, error: wordErr } = await supabase
@@ -112,7 +94,7 @@ export async function POST(request: NextRequest) {
       if (wordErr) throw new Error(wordErr.message);
 
       // Generate and insert cards
-      const cardDrafts = buildCards(wordData, clozeSentence);
+      const cardDrafts = buildCards(wordData);
       const { error: cardsErr } = await supabase.from("cards").insert(
         cardDrafts.map((c) => ({ ...c, word_id: word.id }))
       );

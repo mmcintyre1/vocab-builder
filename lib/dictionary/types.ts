@@ -31,4 +31,5 @@ export interface WordData {
   audioUrl: string | null;       // audio pronunciation URL
   exampleSentence: string | null;
   etymology: string | null;
+  connotation: string | null; // cultural/literary/rhetorical weight, null for everyday words
 }

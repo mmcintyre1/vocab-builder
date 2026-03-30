@@ -28,12 +28,13 @@ interface Word {
   cards: Card[];
 }
 
-const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology"];
+const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology", "connotation"];
 const TYPE_LABEL: Record<string, string> = {
   definition: "Definition",
   pronunciation: "Pronunciation",
   cloze: "Fill in",
   etymology: "Etymology",
+  connotation: "Connotation",
 };
 
 function PencilIcon() {

@@ -25,53 +25,25 @@ export function isClozeUsable(cloze: string, _word: string): boolean {
   return hasBlank && wordCount >= 6;
 }
 
-// Generate cloze sentence + simple phonetic in a single Claude call
-export async function generateCardExtras(
-  word: string,
-  definition: string,
-  anthropic: Anthropic
-): Promise<{ clozeSentence: string; simplePhonetic: string }> {
-  const message = await anthropic.messages.create({
-    model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
-    max_tokens: 200,
-    messages: [
-      {
-        role: "user",
-        content: `For the word "${word}" (${definition}), provide two things as JSON and nothing else:
-{
-  "sentence": "A 10–20 word sentence where the meaning of the word is inferable from context, in a literary or journalistic register.",
-  "phonetic": "Simple syllable respelling with stressed syllable in capitals, e.g. ih-FEM-er-ul or DET-rih-vor"
-}`,
-      },
-    ],
-  });
-
-  const text = message.content[0];
-  if (text.type !== "text") throw new Error("Unexpected Claude response type");
-  const raw = text.text.trim().replace(/^```json\s*/i, "").replace(/```$/, "");
-  const parsed = JSON.parse(raw);
-  return { clozeSentence: parsed.sentence, simplePhonetic: parsed.phonetic };
-}
-
-// Full word data from Claude — used when the dictionary API has no entry
-export async function generateWordDataFromClaude(
+// Single Claude call — generates all word data including optional connotation card
+export async function generateWordData(
   word: string,
   anthropic: Anthropic
 ): Promise<WordData> {
   const message = await anthropic.messages.create({
     model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
-    max_tokens: 500,
+    max_tokens: 600,
     messages: [
       {
         role: "user",
-        content: `Provide dictionary-style information for the word "${word}".
+        content: `Provide dictionary and usage information for the word "${word}".
 Respond with a JSON object and no other text:
 {
   "definition": "(part of speech) primary definition",
-  "allDefinitions": ["(part of speech) definition 1", "(part of speech) definition 2"],
-  "phonetic": "Simple syllable respelling with stressed syllable in capitals, e.g. ih-FEM-er-ul",
-  "sentence": "A 10–20 word sentence where the word's meaning is inferable from context",
-  "etymology": "brief etymology or null"
+  "phonetic": "Simple syllable respelling with stressed syllable in capitals, e.g. ih-FEM-er-ul or mah-KET",
+  "sentence": "A 10–20 word sentence where the word's meaning is clearly inferable from context, in a literary or journalistic register.",
+  "etymology": "Brief etymology (language of origin, root meaning), or null if unremarkable",
+  "connotation": "The word's cultural, literary, rhetorical, or historical weight beyond its bare definition — e.g. its association with a tradition, genre, figure, or context. Return null if the word has no notable connotation."
 }`,
       },
     ],
@@ -85,18 +57,19 @@ Respond with a JSON object and no other text:
   return {
     word,
     definition: parsed.definition,
-    allDefinitions: parsed.allDefinitions,
+    allDefinitions: [parsed.definition],
     simplePhonetic: parsed.phonetic ?? null,
     audioUrl: null,
     exampleSentence: parsed.sentence ?? null,
     etymology: parsed.etymology ?? null,
+    connotation: parsed.connotation ?? null,
   };
 }
 
-export function buildCards(wordData: WordData, clozeSentence: string | null): CardDraft[] {
+export function buildCards(wordData: WordData): CardDraft[] {
   const cards: CardDraft[] = [];
 
-  // Definition card — one clear primary definition (minimum information principle)
+  // Definition card
   cards.push({
     type: "definition",
     front: wordData.word,
@@ -115,9 +88,8 @@ export function buildCards(wordData: WordData, clozeSentence: string | null): Ca
   }
 
   // Cloze card
-  const sentence = clozeSentence ?? wordData.exampleSentence;
-  if (sentence) {
-    const cloze = makeCloze(sentence, wordData.word);
+  if (wordData.exampleSentence) {
+    const cloze = makeCloze(wordData.exampleSentence, wordData.word);
     if (isClozeUsable(cloze, wordData.word)) {
       cards.push({
         type: "cloze",
@@ -133,6 +105,15 @@ export function buildCards(wordData: WordData, clozeSentence: string | null): Ca
       type: "etymology",
       front: `What is the etymology of "${wordData.word}"?`,
       back: wordData.etymology,
+    });
+  }
+
+  // Connotation card — only for culturally/literarily loaded words
+  if (wordData.connotation) {
+    cards.push({
+      type: "connotation",
+      front: `What is the cultural or literary significance of "${wordData.word}"?`,
+      back: wordData.connotation,
     });
   }
 

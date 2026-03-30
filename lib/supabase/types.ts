@@ -1,4 +1,4 @@
-export type CardType = "definition" | "pronunciation" | "cloze" | "etymology";
+export type CardType = "definition" | "pronunciation" | "cloze" | "etymology" | "connotation";
 
 export interface Word {
   id: string;

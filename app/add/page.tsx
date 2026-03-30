@@ -30,6 +30,7 @@ const TYPE_LABEL: Record<string, string> = {
   pronunciation: "Pronunciation",
   cloze: "Fill in",
   etymology: "Etymology",
+  connotation: "Connotation",
 };
 
 function getPin(): string {

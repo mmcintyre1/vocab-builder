@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
   pronunciation: "Pronunciation",
   cloze: "Fill in",
   etymology: "Etymology",
+  connotation: "Connotation",
 };
 
 function renderBack(card: CardWithWord): React.ReactNode {
