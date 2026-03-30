@@ -5,15 +5,16 @@ import { useState, useEffect } from "react";
 const PIN_KEY = "vb_pin";
 
 export default function PinGate({ children }: { children: React.ReactNode }) {
-  const [pin, setPin] = useState("");
+  const [pin, setPin] = useState<string | null>(null); // null = not yet checked
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(PIN_KEY);
-    if (stored) setPin(stored);
+    setPin(stored ?? "");
   }, []);
 
+  if (pin === null) return null; // still reading localStorage — render nothing
   if (pin) return <>{children}</>;
 
   function handleSubmit(e: React.FormEvent) {
