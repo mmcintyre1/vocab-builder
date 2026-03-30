@@ -51,6 +51,7 @@ export default function StudyPage() {
   const [sessionCount, setSessionCount] = useState(0);
   const [undoCard, setUndoCard] = useState<CardWithWord | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [progressPulse, setProgressPulse] = useState(false);
 
   // Swipe state
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -88,6 +89,8 @@ export default function StudyPage() {
     undoTimer.current = setTimeout(() => setUndoCard(null), 5000);
 
     setSessionCount((n) => n + 1);
+    setProgressPulse(false);
+    requestAnimationFrame(() => setProgressPulse(true));
     setSubmitting(false);
     if (index + 1 < cards.length) {
       setIndex((i) => i + 1);
@@ -209,8 +212,31 @@ export default function StudyPage() {
     else if (dx > SWIPE_MIN) handleRating(4);   // Easy
   }
 
+  const pct = (index / cards.length) * 100;
+
   return (
     <div className="flex flex-col gap-5">
+      {/* Progress bar — fixed under nav, always visible on mobile */}
+      <div
+        className="fixed left-0 right-0 z-40"
+        style={{ top: 56 }} /* height of nav */
+      >
+        <div className="h-0.5 w-full" style={{ background: "var(--border)" }}>
+          <div
+            className={`h-0.5 transition-all duration-500 ease-out${progressPulse ? " progress-pulse" : ""}`}
+            style={{ background: "var(--accent-fg)", width: `${pct}%` }}
+            onAnimationEnd={() => setProgressPulse(false)}
+          />
+        </div>
+        <div className="flex justify-between px-4 pt-1 text-xs tabular-nums" style={{ color: "var(--text-faint)" }}>
+          <span>{index} of {cards.length}</span>
+          <span>{remaining} left</span>
+        </div>
+      </div>
+
+      {/* Spacer so content doesn't hide under fixed bar */}
+      <div style={{ height: 24 }} />
+
       {/* Undo toast */}
       {undoCard && (
         <div className="card-reveal flex items-center justify-between px-4 py-2.5 rounded-xl text-sm" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -220,20 +246,6 @@ export default function StudyPage() {
           </button>
         </div>
       )}
-
-      {/* Progress bar */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex-1 rounded-full h-1.5" style={{ background: "var(--border)" }}>
-          <div
-            className="h-1.5 rounded-full transition-all duration-300"
-            style={{ background: "var(--accent-fg)", width: `${(index / cards.length) * 100}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>
-          <span>{index} of {cards.length}</span>
-          <span>{remaining} left</span>
-        </div>
-      </div>
 
       {/* Meta */}
       <div className="flex items-center justify-between">

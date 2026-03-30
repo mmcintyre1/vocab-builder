@@ -109,3 +109,12 @@ body {
 .rating-reveal {
   animation: rating-in 0.18s ease-out forwards;
 }
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.progress-pulse {
+  animation: progress-pulse 1s ease-in-out 2;
+}
