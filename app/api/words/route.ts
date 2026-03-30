@@ -93,8 +93,11 @@ export async function POST(request: NextRequest) {
 
       if (wordErr) throw new Error(wordErr.message);
 
-      // Generate and insert cards
-      const cardDrafts = buildCards(wordData);
+      // Generate and insert cards — filter to selected types if specified
+      const includeTypes: string[] | undefined = body.includeTypes;
+      const cardDrafts = buildCards(wordData).filter(
+        (c) => !includeTypes || includeTypes.includes(c.type)
+      );
       const { error: cardsErr } = await supabase.from("cards").insert(
         cardDrafts.map((c) => ({ ...c, word_id: word.id }))
       );

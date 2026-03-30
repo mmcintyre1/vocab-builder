@@ -47,6 +47,7 @@ export default function AddPage() {
 
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewData | null>(null);
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<Result[]>([]);
   const [errors, setErrors] = useState<Result[]>([]);
   const [allSources, setAllSources] = useState<string[]>([]);
@@ -92,7 +93,9 @@ export default function AddPage() {
       body: JSON.stringify({ word: word.trim() }),
     });
     if (res.ok) {
-      setPreview(await res.json());
+      const data = await res.json();
+      setPreview(data);
+      setSelectedTypes(new Set(data.cards.map((c: CardPreview) => c.type)));
     } else {
       const data = await res.json();
       setErrors([{ word: word.trim(), error: data.error ?? "Lookup failed" }]);
@@ -107,7 +110,7 @@ export default function AddPage() {
     const res = await fetch("/api/words", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ word: preview.word, source: source.trim() || null, notes: notes.trim() || null }),
+      body: JSON.stringify({ word: preview.word, source: source.trim() || null, notes: notes.trim() || null, includeTypes: [...selectedTypes] }),
     });
     const data = await res.json();
     setErrors(data.errors ?? []);
@@ -235,21 +238,38 @@ export default function AddPage() {
                   <span className="font-semibold" style={{ color: "var(--text)" }}>{preview.word}</span>
                 </div>
                 <ul className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
-                  {preview.cards.map((c) => (
-                    <li key={c.type} className="px-4 py-3 flex flex-col gap-1.5">
-                      <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                        {TYPE_LABEL[c.type] ?? c.type}
-                      </span>
-                      <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>{c.front}</p>
-                      {c.back && (
-                        <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border-subtle)", paddingTop: "0.5rem", marginTop: "0.125rem" }}>{c.back}</p>
-                      )}
-                    </li>
-                  ))}
+                  {preview.cards.map((c) => {
+                    const on = selectedTypes.has(c.type);
+                    return (
+                      <li
+                        key={c.type}
+                        className="px-4 py-3 flex flex-col gap-1.5 cursor-pointer transition-opacity"
+                        style={{ opacity: on ? 1 : 0.35 }}
+                        onClick={() => setSelectedTypes((prev) => {
+                          const next = new Set(prev);
+                          on ? next.delete(c.type) : next.add(c.type);
+                          return next;
+                        })}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+                            {TYPE_LABEL[c.type] ?? c.type}
+                          </span>
+                          <span className="text-xs" style={{ color: on ? "var(--accent-fg)" : "var(--text-faint)" }}>
+                            {on ? "✓" : "–"}
+                          </span>
+                        </div>
+                        <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>{c.front}</p>
+                        {c.back && (
+                          <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border-subtle)", paddingTop: "0.5rem", marginTop: "0.125rem" }}>{c.back}</p>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
-              <button onClick={handleConfirmAdd} disabled={loading} className="btn-primary">
-                {loading ? "Saving…" : "Add word"}
+              <button onClick={handleConfirmAdd} disabled={loading || selectedTypes.size === 0} className="btn-primary">
+                {loading ? "Saving…" : `Add word · ${selectedTypes.size} card${selectedTypes.size !== 1 ? "s" : ""}`}
               </button>
               <button
                 onClick={() => setPreview(null)}
