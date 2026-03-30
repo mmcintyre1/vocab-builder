@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 import { generateWordData, buildCards } from "@/lib/cards/generate";
+import { supabase } from "@/lib/supabase/client";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -27,6 +28,16 @@ export async function POST(request: NextRequest) {
   previewToday.count++;
 
   const normalized = wordStr.trim().toLowerCase();
+
+  // Check for duplicate before spending a Claude call
+  const { data: existing } = await supabase
+    .from("words")
+    .select("id")
+    .eq("word", normalized)
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json({ error: "Already exists" }, { status: 409 });
+  }
 
   const wordData = await generateWordData(normalized, anthropic);
   const cards = buildCards(wordData);

@@ -94,7 +94,8 @@ export default function AddPage() {
     if (res.ok) {
       setPreview(await res.json());
     } else {
-      setErrors([{ word: word.trim(), error: "Lookup failed" }]);
+      const data = await res.json();
+      setErrors([{ word: word.trim(), error: data.error ?? "Lookup failed" }]);
     }
     setLoading(false);
   }
@@ -184,6 +185,7 @@ export default function AddPage() {
               autoFocus
               autoCapitalize="none"
               autoCorrect="off"
+              autoComplete="off"
               spellCheck={false}
             />
             <div className="relative">
