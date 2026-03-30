@@ -240,24 +240,43 @@ export default function AddPage() {
                 <ul className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
                   {preview.cards.map((c) => {
                     const on = selectedTypes.has(c.type);
+                    const toggle = () => setSelectedTypes((prev) => {
+                      const next = new Set(prev);
+                      on ? next.delete(c.type) : next.add(c.type);
+                      return next;
+                    });
                     return (
                       <li
                         key={c.type}
-                        className="px-4 py-3 flex flex-col gap-1.5 cursor-pointer transition-opacity"
-                        style={{ opacity: on ? 1 : 0.35 }}
-                        onClick={() => setSelectedTypes((prev) => {
-                          const next = new Set(prev);
-                          on ? next.delete(c.type) : next.add(c.type);
-                          return next;
-                        })}
+                        className="px-4 py-3 flex flex-col gap-1.5 transition-opacity"
+                        style={{ opacity: on ? 1 : 0.4 }}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-3">
                           <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                             {TYPE_LABEL[c.type] ?? c.type}
                           </span>
-                          <span className="text-xs" style={{ color: on ? "var(--accent-fg)" : "var(--text-faint)" }}>
-                            {on ? "✓" : "–"}
-                          </span>
+                          {/* Pill toggle */}
+                          <button
+                            type="button"
+                            onClick={toggle}
+                            className="shrink-0 rounded-full transition-colors"
+                            style={{
+                              width: 36, height: 20,
+                              background: on ? "var(--accent)" : "var(--border)",
+                              position: "relative",
+                            }}
+                            aria-label={on ? `Remove ${TYPE_LABEL[c.type]} card` : `Add ${TYPE_LABEL[c.type]} card`}
+                          >
+                            <span
+                              className="absolute rounded-full transition-all"
+                              style={{
+                                width: 14, height: 14,
+                                top: 3,
+                                left: on ? 19 : 3,
+                                background: "var(--bg)",
+                              }}
+                            />
+                          </button>
                         </div>
                         <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>{c.front}</p>
                         {c.back && (
