@@ -222,14 +222,17 @@ export default function StudyPage() {
       )}
 
       {/* Progress bar */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 rounded-full h-1" style={{ background: "var(--border)" }}>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex-1 rounded-full h-1.5" style={{ background: "var(--border)" }}>
           <div
-            className="h-1 rounded-full transition-all"
-            style={{ background: "var(--text-muted)", width: `${((index) / cards.length) * 100}%` }}
+            className="h-1.5 rounded-full transition-all duration-300"
+            style={{ background: "var(--accent-fg)", width: `${(index / cards.length) * 100}%` }}
           />
         </div>
-        <span className="text-xs tabular-nums shrink-0" style={{ color: "var(--text-muted)" }}>{remaining} left</span>
+        <div className="flex justify-between text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>
+          <span>{index} of {cards.length}</span>
+          <span>{remaining} left</span>
+        </div>
       </div>
 
       {/* Meta */}
