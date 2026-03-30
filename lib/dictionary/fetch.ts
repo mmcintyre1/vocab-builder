@@ -56,6 +56,7 @@ export function extractWordData(entries: DictionaryEntry[]): WordData {
     audioUrl: audioUrl ?? null,
     exampleSentence,
     etymology: entry.origin ?? null,
+    connotation: null,
   };
 }
 
