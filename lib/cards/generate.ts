@@ -37,7 +37,7 @@ const wordDataPrompt = (word: string) =>
   "phonetic": "Syllable respelling with the stressed syllable in capitals, e.g. ih-FEM-er-ul or mah-KET. No IPA.",
   "sentence": "A 10–20 word sentence in a literary or journalistic register. The word's meaning should be strongly inferable from context — a learner should be able to deduce it — but not trivially obvious.",
   "etymology": "Language of origin and root meaning in one sentence, e.g. 'From Latin pallium (cloak).' Return null if unremarkable.",
-  "connotation": "2–3 sentences on the word's cultural, literary, rhetorical, or historical weight beyond its bare definition — its tradition, register, or associations. Return null if the word carries no notable connotation."
+  "connotation": "One sentence (max 25 words) naming the word's key cultural, literary, or rhetorical association — e.g. its genre, tradition, or defining context. Return null if the word carries no notable connotation."
 }`;
 
 // Single Claude call — generates all word data including optional connotation card
