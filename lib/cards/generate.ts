@@ -25,6 +25,21 @@ export function isClozeUsable(cloze: string, _word: string): boolean {
   return hasBlank && wordCount >= 6;
 }
 
+const SYSTEM_PROMPT =
+  "You are a vocabulary tutor building spaced repetition flashcards for a reader who regularly encounters literary, journalistic, and academic prose. " +
+  "Your goal is to produce content that helps the learner deeply encode each word — not just recognize its definition, but understand its sound, origin, usage, and cultural weight. " +
+  "Favour precision over breadth. Every field should be useful on a flashcard: concise enough to read at a glance, rich enough to be memorable.";
+
+const wordDataPrompt = (word: string) =>
+  `Provide flashcard content for the word "${word}". Respond with a JSON object and no other text:
+{
+  "definition": "(part of speech) One precise sentence that distinguishes this word from near-synonyms.",
+  "phonetic": "Syllable respelling with the stressed syllable in capitals, e.g. ih-FEM-er-ul or mah-KET. No IPA.",
+  "sentence": "A 10–20 word sentence in a literary or journalistic register. The word's meaning should be strongly inferable from context — a learner should be able to deduce it — but not trivially obvious.",
+  "etymology": "Language of origin and root meaning in one sentence, e.g. 'From Latin pallium (cloak).' Return null if unremarkable.",
+  "connotation": "2–3 sentences on the word's cultural, literary, rhetorical, or historical weight beyond its bare definition — its tradition, register, or associations. Return null if the word carries no notable connotation."
+}`;
+
 // Single Claude call — generates all word data including optional connotation card
 export async function generateWordData(
   word: string,
@@ -33,18 +48,11 @@ export async function generateWordData(
   const message = await anthropic.messages.create({
     model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
     max_tokens: 600,
+    system: SYSTEM_PROMPT,
     messages: [
       {
         role: "user",
-        content: `Provide dictionary and usage information for the word "${word}".
-Respond with a JSON object and no other text:
-{
-  "definition": "(part of speech) primary definition",
-  "phonetic": "Simple syllable respelling with stressed syllable in capitals, e.g. ih-FEM-er-ul or mah-KET",
-  "sentence": "A 10–20 word sentence where the word's meaning is clearly inferable from context, in a literary or journalistic register.",
-  "etymology": "Brief etymology (language of origin, root meaning), or null if unremarkable",
-  "connotation": "The word's cultural, literary, rhetorical, or historical weight beyond its bare definition — e.g. its association with a tradition, genre, figure, or context. Return null if the word has no notable connotation."
-}`,
+        content: wordDataPrompt(word),
       },
     ],
   });
