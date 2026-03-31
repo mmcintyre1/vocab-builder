@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
     .limit(50);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+
+  // Shuffle so cards from the same word don't appear in sequence
+  const shuffled = data ? [...data].sort(() => Math.random() - 0.5) : [];
+  return NextResponse.json(shuffled);
 }
 
 // POST /api/review — submit a rating for a card
