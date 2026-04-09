@@ -10,7 +10,8 @@ let _client: VocabClient | null = null;
 export function getSupabase(): VocabClient {
   if (!_client) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Prefer service role key (server-side only, bypasses RLS) — fall back to anon key
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) throw new Error("Missing Supabase env vars");
     _client = createClient(url, key, { db: { schema: "vocab" } });
   }
