@@ -1,4 +1,4 @@
-export type CardType = "definition" | "pronunciation" | "cloze" | "etymology" | "connotation";
+export type CardType = "definition" | "pronunciation" | "cloze" | "etymology" | "connotation" | "implication";
 
 export interface Word {
   id: string;
@@ -7,6 +7,7 @@ export interface Word {
   tags: string[];
   notes: string | null;
   added_at: string;
+  entry_type: "word" | "concept";
 }
 
 export interface Card {

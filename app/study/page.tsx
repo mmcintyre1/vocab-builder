@@ -21,6 +21,7 @@ const TYPE_LABEL: Record<string, string> = {
   cloze: "Fill in",
   etymology: "Etymology",
   connotation: "Connotation",
+  implication: "Implication",
 };
 
 function renderBack(card: CardWithWord): React.ReactNode {

@@ -40,21 +40,27 @@ const wordDataPrompt = (word: string) =>
   "connotation": "One sentence (max 25 words) naming the word's key cultural, literary, or rhetorical association — e.g. its genre, tradition, or defining context. Return null if the word carries no notable connotation."
 }`;
 
-// Single Claude call — generates all word data including optional connotation card
+const conceptDataPrompt = (concept: string) =>
+  `Provide flashcard content for the concept "${concept}". Respond with a JSON object and no other text:
+{
+  "definition": "(noun/concept) One precise sentence that distinguishes this concept from related ideas.",
+  "sentence": "A 10–20 word sentence where the concept's meaning is strongly inferable from context.",
+  "etymology": "Language of origin and root meaning in one sentence, e.g. 'From Greek dialektikē (art of debate).' Return null if unremarkable.",
+  "implication": "One sentence (max 30 words) stating the broader significance or intellectual consequence of this concept — what it implies about the world or how we reason."
+}`;
+
+// Single Claude call — generates all word data
 export async function generateWordData(
   word: string,
-  anthropic: Anthropic
+  anthropic: Anthropic,
+  entryType: "word" | "concept" = "word"
 ): Promise<WordData> {
+  const prompt = entryType === "concept" ? conceptDataPrompt(word) : wordDataPrompt(word);
   const message = await anthropic.messages.create({
     model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
     max_tokens: 600,
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: wordDataPrompt(word),
-      },
-    ],
+    messages: [{ role: "user", content: prompt }],
   });
 
   const text = message.content[0];
@@ -71,58 +77,86 @@ export async function generateWordData(
     exampleSentence: parsed.sentence ?? null,
     etymology: parsed.etymology ?? null,
     connotation: parsed.connotation ?? null,
+    implication: parsed.implication ?? null,
   };
 }
 
-export function buildCards(wordData: WordData): CardDraft[] {
+export function buildCards(
+  wordData: WordData,
+  entryType: "word" | "concept" = "word"
+): CardDraft[] {
   const cards: CardDraft[] = [];
 
-  // Definition card
+  // Definition card — always present
   cards.push({
     type: "definition",
     front: wordData.word,
     back: wordData.definition,
   });
 
-  // Pronunciation card — only if we have a simple human-readable respelling
-  if (wordData.simplePhonetic) {
-    cards.push({
-      type: "pronunciation",
-      front: `How is "${wordData.word}" pronounced?`,
-      back: wordData.audioUrl
-        ? `${wordData.simplePhonetic}\n[audio:${wordData.audioUrl}]`
-        : wordData.simplePhonetic,
-    });
-  }
+  if (entryType === "concept") {
+    // Cloze card
+    if (wordData.exampleSentence) {
+      const cloze = makeCloze(wordData.exampleSentence, wordData.word);
+      if (isClozeUsable(cloze, wordData.word)) {
+        cards.push({ type: "cloze", front: cloze, back: wordData.word });
+      }
+    }
 
-  // Cloze card
-  if (wordData.exampleSentence) {
-    const cloze = makeCloze(wordData.exampleSentence, wordData.word);
-    if (isClozeUsable(cloze, wordData.word)) {
+    // Etymology card
+    if (wordData.etymology) {
       cards.push({
-        type: "cloze",
-        front: cloze,
-        back: wordData.word,
+        type: "etymology",
+        front: `What is the origin of "${wordData.word}"?`,
+        back: wordData.etymology,
       });
     }
-  }
 
-  // Etymology card
-  if (wordData.etymology) {
-    cards.push({
-      type: "etymology",
-      front: `What is the etymology of "${wordData.word}"?`,
-      back: wordData.etymology,
-    });
-  }
+    // Implication card
+    if (wordData.implication) {
+      cards.push({
+        type: "implication",
+        front: `What does "${wordData.word}" imply about the world or how we reason?`,
+        back: wordData.implication,
+      });
+    }
+  } else {
+    // Pronunciation card — only if we have a simple human-readable respelling
+    if (wordData.simplePhonetic) {
+      cards.push({
+        type: "pronunciation",
+        front: `How is "${wordData.word}" pronounced?`,
+        back: wordData.audioUrl
+          ? `${wordData.simplePhonetic}\n[audio:${wordData.audioUrl}]`
+          : wordData.simplePhonetic,
+      });
+    }
 
-  // Connotation card — only for culturally/literarily loaded words
-  if (wordData.connotation) {
-    cards.push({
-      type: "connotation",
-      front: `What is the cultural or literary significance of "${wordData.word}"?`,
-      back: wordData.connotation,
-    });
+    // Cloze card
+    if (wordData.exampleSentence) {
+      const cloze = makeCloze(wordData.exampleSentence, wordData.word);
+      if (isClozeUsable(cloze, wordData.word)) {
+        cards.push({ type: "cloze", front: cloze, back: wordData.word });
+      }
+    }
+
+    // Etymology card
+    if (wordData.etymology) {
+      cards.push({
+        type: "etymology",
+        front: `What is the etymology of "${wordData.word}"?`,
+        back: wordData.etymology,
+      });
+    }
+
+    // Connotation card — only for culturally/literarily loaded words
+    if (wordData.connotation) {
+      cards.push({
+        type: "connotation",
+        front: `What is the cultural or literary significance of "${wordData.word}"?`,
+        back: wordData.connotation,
+      });
+    }
   }
 
   return cards;

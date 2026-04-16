@@ -32,4 +32,5 @@ export interface WordData {
   exampleSentence: string | null;
   etymology: string | null;
   connotation: string | null; // cultural/literary/rhetorical weight, null for everyday words
+  implication: string | null; // broader significance for concept entries
 }

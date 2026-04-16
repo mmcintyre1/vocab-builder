@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 type Mode = "single" | "bulk";
+type EntryType = "word" | "concept";
 
 interface CardPreview {
   id?: string;
@@ -31,6 +32,7 @@ const TYPE_LABEL: Record<string, string> = {
   cloze: "Fill in",
   etymology: "Etymology",
   connotation: "Connotation",
+  implication: "Implication",
 };
 
 function getPin(): string {
@@ -39,6 +41,7 @@ function getPin(): string {
 
 export default function AddPage() {
   const [mode, setMode] = useState<Mode>("single");
+  const [entryType, setEntryType] = useState<EntryType>("word");
 
   const [word, setWord] = useState("");
   const [source, setSource] = useState("");
@@ -90,7 +93,7 @@ export default function AddPage() {
     const res = await fetch("/api/words/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ word: word.trim() }),
+      body: JSON.stringify({ word: word.trim(), entryType }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -110,7 +113,7 @@ export default function AddPage() {
     const res = await fetch("/api/words", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ word: preview.word, source: source.trim() || null, notes: notes.trim() || null, includeTypes: [...selectedTypes] }),
+      body: JSON.stringify({ word: preview.word, entryType, source: source.trim() || null, notes: notes.trim() || null, includeTypes: [...selectedTypes] }),
     });
     const data = await res.json();
     setErrors(data.errors ?? []);
@@ -179,9 +182,26 @@ export default function AddPage() {
       {mode === "single" ? (
         <>
           <form onSubmit={handlePreview} className="flex flex-col gap-3">
+            {/* Word / Concept toggle */}
+            <div className="flex gap-3 text-sm">
+              {(["word", "concept"] as EntryType[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { setEntryType(t); setPreview(null); }}
+                  className="capitalize transition-colors pb-0.5"
+                  style={entryType === t
+                    ? { color: "var(--text)", borderBottom: "1px solid var(--text)" }
+                    : { color: "var(--text-muted)", borderBottom: "1px solid transparent" }
+                  }
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
             <input
               type="text"
-              placeholder="Word"
+              placeholder={entryType === "concept" ? "Concept" : "Word"}
               value={word}
               onChange={(e) => { setWord(e.target.value.toLowerCase()); setPreview(null); }}
               className="input-field text-base"

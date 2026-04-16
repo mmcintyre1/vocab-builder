@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const pin = getPinFromRequest(request);
   if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { word: wordStr } = await request.json();
+  const { word: wordStr, entryType = "word" } = await request.json();
   if (!wordStr?.trim()) return NextResponse.json({ error: "word required" }, { status: 400 });
 
   // Daily preview rate limit
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Already exists" }, { status: 409 });
   }
 
-  const wordData = await generateWordData(normalized, anthropic);
-  const cards = buildCards(wordData);
+  const wordData = await generateWordData(normalized, anthropic, entryType);
+  const cards = buildCards(wordData, entryType);
 
   return NextResponse.json({
     word: normalized,
