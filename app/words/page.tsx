@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { nextDueDate, isoToDaysLabel } from "@/lib/cards/schedule";
 
 function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
@@ -142,9 +143,14 @@ export default function WordsPage() {
                 <div className="shrink-0 text-xs text-right">
                   {due > 0 ? (
                     <span className="font-medium" style={{ color: "var(--accent-fg)" }}>{due} due</span>
-                  ) : (
-                    <span style={{ color: "var(--text-muted)" }}>{w.cards.length} cards</span>
-                  )}
+                  ) : (() => {
+                    const next = nextDueDate(w.cards);
+                    return next ? (
+                      <span style={{ color: "var(--text-muted)" }}>due {isoToDaysLabel(next)}</span>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)" }}>{w.cards.length} cards</span>
+                    );
+                  })()}
                 </div>
 
                 {/* Delete — always visible on mobile */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { daysUntilLabel } from "@/lib/cards/schedule";
 import type { CardWithWord } from "@/lib/supabase/types";
 
 function getPin(): string {
@@ -52,6 +53,7 @@ export default function StudyPage() {
   const [sessionCount, setSessionCount] = useState(0);
   const [undoCard, setUndoCard] = useState<CardWithWord | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastInterval, setLastInterval] = useState<number | null>(null);
   const [progressPulse, setProgressPulse] = useState(false);
 
   // Swipe state
@@ -78,11 +80,13 @@ export default function StudyPage() {
     setSubmitting(true);
 
     const savedCard = card;
-    await fetch("/api/review", {
+    const res = await fetch("/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
       body: JSON.stringify({ cardId: card.id, rating }),
     });
+    const ratingResult = res.ok ? await res.json() : null;
+    setLastInterval(ratingResult?.intervalDays ?? null);
 
     // Set up undo window (5s)
     if (undoTimer.current) clearTimeout(undoTimer.current);
@@ -124,6 +128,7 @@ export default function StudyPage() {
       }),
     });
 
+    setLastInterval(null);
     setSessionCount((n) => Math.max(0, n - 1));
     setCards((prev) => [savedCard, ...prev.filter((c) => c.id !== savedCard.id)]);
     setIndex(0);
@@ -239,7 +244,14 @@ export default function StudyPage() {
       {/* Undo toast */}
       {undoCard && (
         <div className="card-reveal flex items-center justify-between px-4 py-2.5 rounded-xl text-sm" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-          <span style={{ color: "var(--text-muted)" }}>Rated "{undoCard.words?.word}"</span>
+          <span style={{ color: "var(--text-muted)" }}>
+            "{undoCard.words?.word}"
+            {lastInterval !== null && (
+              <span style={{ color: "var(--text-faint)" }}>
+                {" "}· due {daysUntilLabel(lastInterval)}
+              </span>
+            )}
+          </span>
           <button onClick={handleUndo} className="font-medium transition-colors" style={{ color: "var(--accent-fg)" }}>
             Undo
           </button>
