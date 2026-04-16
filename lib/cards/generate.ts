@@ -30,20 +30,20 @@ const SYSTEM_PROMPT =
   "Your goal is to produce content that helps the learner deeply encode each word — not just recognize its definition, but understand its sound, origin, usage, and cultural weight. " +
   "Favour precision over breadth. Every field should be useful on a flashcard: concise enough to read at a glance, rich enough to be memorable.";
 
-const wordDataPrompt = (word: string) =>
+export const wordDataPrompt = (word: string) =>
   `Provide flashcard content for the word "${word}". Respond with a JSON object and no other text:
 {
-  "definition": "(part of speech) One precise sentence that distinguishes this word from near-synonyms.",
+  "definition": "(part of speech) Under 12 words. State the core meaning only — no elaboration.",
   "phonetic": "Syllable respelling with the stressed syllable in capitals, e.g. ih-FEM-er-ul or mah-KET. No IPA.",
   "sentence": "A 10–20 word sentence in a literary or journalistic register. The word's meaning should be strongly inferable from context — a learner should be able to deduce it — but not trivially obvious.",
   "etymology": "Language of origin and root meaning in one sentence, e.g. 'From Latin pallium (cloak).' Return null if unremarkable.",
   "connotation": "One sentence (max 25 words) naming the word's key cultural, literary, or rhetorical association — e.g. its genre, tradition, or defining context. Return null if the word carries no notable connotation."
 }`;
 
-const conceptDataPrompt = (concept: string) =>
+export const conceptDataPrompt = (concept: string) =>
   `Provide flashcard content for the concept "${concept}". Respond with a JSON object and no other text:
 {
-  "definition": "(noun/concept) One precise sentence that distinguishes this concept from related ideas.",
+  "definition": "(noun/concept) Under 12 words. State the core meaning only — no elaboration.",
   "sentence": "A 10–20 word sentence where the concept's meaning is strongly inferable from context.",
   "etymology": "Language of origin and root meaning in one sentence, e.g. 'From Greek dialektikē (art of debate).' Return null if unremarkable.",
   "implication": "One sentence (max 30 words) stating the broader significance or intellectual consequence of this concept — what it implies about the world or how we reason."
