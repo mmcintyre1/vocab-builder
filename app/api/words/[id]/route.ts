@@ -13,7 +13,7 @@ export async function GET(
   const { id } = await params;
   const { data, error } = await supabase
     .from("words")
-    .select("*, cards(*)")
+    .select("*, cards(*, reviews(rating, reviewed_at))")
     .eq("id", id)
     .single();
 

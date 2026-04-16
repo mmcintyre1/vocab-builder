@@ -7,6 +7,11 @@ function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
 }
 
+interface Review {
+  rating: number;
+  reviewed_at: string;
+}
+
 interface Card {
   id: string;
   type: string;
@@ -17,6 +22,7 @@ interface Card {
   last_review: string | null;
   next_review: string;
   stability: number;
+  reviews?: Review[];
 }
 
 interface Word {
@@ -76,6 +82,48 @@ function formatReviewStats(card: Card): string {
     parts.push(`next ${next.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`);
   }
   return parts.join(" · ");
+}
+
+const DOT_COLOR: Record<number, string> = {
+  1: "#f87171", // Again — red
+  2: "#fdba74", // Hard  — amber
+  3: "#86efac", // Good  — green
+  4: "#93c5fd", // Easy  — blue
+};
+const DOT_LABEL: Record<number, string> = { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" };
+const MAX_DOTS = 12;
+
+function ReviewDots({ reviews }: { reviews: Review[] }) {
+  if (reviews.length === 0) return null;
+  const sorted = [...reviews].sort(
+    (a, b) => new Date(a.reviewed_at).getTime() - new Date(b.reviewed_at).getTime()
+  );
+  const overflow = sorted.length > MAX_DOTS ? sorted.length - MAX_DOTS : 0;
+  const visible = sorted.slice(-MAX_DOTS);
+
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {overflow > 0 && (
+        <span className="text-xs tabular-nums" style={{ color: "var(--text-faint)" }}>
+          +{overflow}
+        </span>
+      )}
+      {visible.map((r, i) => (
+        <span
+          key={i}
+          title={`${DOT_LABEL[r.rating]} · ${new Date(r.reviewed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+          style={{
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: DOT_COLOR[r.rating] ?? "var(--text-faint)",
+            opacity: 0.85,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 function CardRow({ card, forceEdit, onUpdate }: {
@@ -174,6 +222,11 @@ function CardRow({ card, forceEdit, onUpdate }: {
         <div className="px-4 pb-3 flex flex-col gap-1.5">
           <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>{card.front}</p>
           <p className="text-xs pt-1" style={{ color: "var(--text-muted)" }}>{formatReviewStats(card)}</p>
+          {card.reviews && card.reviews.length > 0 && (
+            <div className="pt-0.5">
+              <ReviewDots reviews={card.reviews} />
+            </div>
+          )}
         </div>
       )}
     </div>
