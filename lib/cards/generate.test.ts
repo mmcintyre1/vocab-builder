@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { makeCloze, isClozeUsable, buildCards } from "./generate";
+import { makeCloze, isClozeUsable, buildCards, wordDataPrompt, conceptDataPrompt } from "./generate";
 import type { WordData } from "@/lib/dictionary/types";
 
 describe("makeCloze", () => {
@@ -171,5 +171,29 @@ describe("buildCards (concept entry type)", () => {
     const data = { ...sampleConceptData, implication: null };
     const cards = buildCards(data, "concept");
     expect(cards.find((c) => c.type === "implication")).toBeUndefined();
+  });
+});
+
+describe("wordDataPrompt", () => {
+  it("instructs Claude to keep definition under 12 words", () => {
+    const prompt = wordDataPrompt("ephemeral");
+    expect(prompt).toMatch(/12\s*words?/i);
+  });
+
+  it("includes the target word in the prompt", () => {
+    const prompt = wordDataPrompt("palliate");
+    expect(prompt).toContain("palliate");
+  });
+});
+
+describe("conceptDataPrompt", () => {
+  it("instructs Claude to keep definition under 12 words", () => {
+    const prompt = conceptDataPrompt("dialectic");
+    expect(prompt).toMatch(/12\s*words?/i);
+  });
+
+  it("includes the target concept in the prompt", () => {
+    const prompt = conceptDataPrompt("dialectic");
+    expect(prompt).toContain("dialectic");
   });
 });
