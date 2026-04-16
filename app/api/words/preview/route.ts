@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const pin = getPinFromRequest(request);
   if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { word: wordStr, entryType = "word" } = await request.json();
+  const { word: wordStr, entryType = "word" } = await request.json() as { word: string; entryType?: "word" | "concept" | "reference" };
   if (!wordStr?.trim()) return NextResponse.json({ error: "word required" }, { status: 400 });
 
   // Daily preview rate limit

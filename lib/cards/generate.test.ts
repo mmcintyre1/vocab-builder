@@ -73,6 +73,8 @@ const sampleWordData: WordData = {
   etymology: "mid 16th century: from Greek ephēmeros (lasting only a day)",
   connotation: null,
   implication: null,
+  context: null,
+  significance: null,
 };
 
 describe("buildCards (word entry type)", () => {
@@ -143,6 +145,8 @@ const sampleConceptData: WordData = {
   etymology: "From Greek dialektikē (technē), art of debate",
   connotation: "Associated with Hegel and Marx; signals philosophical or ideological discourse.",
   implication: "Suggests that truth emerges through the tension of opposing ideas rather than settled doctrine.",
+  context: null,
+  significance: null,
 };
 
 describe("buildCards (concept entry type)", () => {

@@ -33,4 +33,6 @@ export interface WordData {
   etymology: string | null;
   connotation: string | null; // cultural/literary/rhetorical weight, null for everyday words
   implication: string | null; // broader significance for concept entries
+  context: string | null;    // historical/cultural grounding for reference entries
+  significance: string | null; // what invoking this name signals
 }

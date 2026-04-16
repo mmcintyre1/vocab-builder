@@ -49,13 +49,25 @@ export const conceptDataPrompt = (concept: string) =>
   "implication": "One sentence (max 30 words) stating the broader significance or intellectual consequence of this concept — what it implies about the world or how we reason."
 }`;
 
+export const referenceDataPrompt = (ref: string) =>
+  `Provide flashcard content for the named reference "${ref}". Respond with a JSON object and no other text:
+{
+  "definition": "Under 12 words. What it is — no elaboration.",
+  "sentence": "A 10–20 word sentence where the reference appears naturally in context.",
+  "context": "One sentence: who created or coined it, when, and where. Ground it historically.",
+  "significance": "One sentence (max 30 words): what invoking this name signals or implies — its rhetorical or intellectual afterlife."
+}`;
+
 // Single Claude call — generates all word data
 export async function generateWordData(
   word: string,
   anthropic: Anthropic,
-  entryType: "word" | "concept" = "word"
+  entryType: "word" | "concept" | "reference" = "word"
 ): Promise<WordData> {
-  const prompt = entryType === "concept" ? conceptDataPrompt(word) : wordDataPrompt(word);
+  const prompt =
+    entryType === "concept" ? conceptDataPrompt(word) :
+    entryType === "reference" ? referenceDataPrompt(word) :
+    wordDataPrompt(word);
   const message = await anthropic.messages.create({
     model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
     max_tokens: 600,
@@ -78,12 +90,14 @@ export async function generateWordData(
     etymology: parsed.etymology ?? null,
     connotation: parsed.connotation ?? null,
     implication: parsed.implication ?? null,
+    context: parsed.context ?? null,
+    significance: parsed.significance ?? null,
   };
 }
 
 export function buildCards(
   wordData: WordData,
-  entryType: "word" | "concept" = "word"
+  entryType: "word" | "concept" | "reference" = "word"
 ): CardDraft[] {
   const cards: CardDraft[] = [];
 
@@ -94,7 +108,33 @@ export function buildCards(
     back: wordData.definition,
   });
 
-  if (entryType === "concept") {
+  if (entryType === "reference") {
+    // Cloze
+    if (wordData.exampleSentence) {
+      const cloze = makeCloze(wordData.exampleSentence, wordData.word);
+      if (isClozeUsable(cloze, wordData.word)) {
+        cards.push({ type: "cloze", front: cloze, back: wordData.word });
+      }
+    }
+
+    // Context card
+    if (wordData.context) {
+      cards.push({
+        type: "context",
+        front: `What is the historical context of "${wordData.word}"?`,
+        back: wordData.context,
+      });
+    }
+
+    // Significance card
+    if (wordData.significance) {
+      cards.push({
+        type: "significance",
+        front: `What does invoking "${wordData.word}" signal?`,
+        back: wordData.significance,
+      });
+    }
+  } else if (entryType === "concept") {
     // Cloze card
     if (wordData.exampleSentence) {
       const cloze = makeCloze(wordData.exampleSentence, wordData.word);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 type Mode = "single" | "bulk";
-type EntryType = "word" | "concept";
+type EntryType = "word" | "concept" | "reference";
 
 interface CardPreview {
   id?: string;
@@ -33,6 +33,8 @@ const TYPE_LABEL: Record<string, string> = {
   etymology: "Etymology",
   connotation: "Connotation",
   implication: "Implication",
+  context: "Context",
+  significance: "Significance",
 };
 
 function getPin(): string {
@@ -184,7 +186,7 @@ export default function AddPage() {
           <form onSubmit={handlePreview} className="flex flex-col gap-3">
             {/* Word / Concept toggle */}
             <div className="flex gap-3 text-sm">
-              {(["word", "concept"] as EntryType[]).map((t) => (
+              {(["word", "concept", "reference"] as EntryType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -201,7 +203,7 @@ export default function AddPage() {
             </div>
             <input
               type="text"
-              placeholder={entryType === "concept" ? "Concept" : "Word"}
+              placeholder={entryType === "concept" ? "Concept" : entryType === "reference" ? "Reference" : "Word"}
               value={word}
               onChange={(e) => { setWord(e.target.value.toLowerCase()); setPreview(null); }}
               className="input-field text-base"

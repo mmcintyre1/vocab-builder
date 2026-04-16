@@ -28,7 +28,7 @@ interface Word {
   cards: Card[];
 }
 
-const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology", "connotation", "implication"];
+const TYPE_ORDER = ["definition", "pronunciation", "cloze", "etymology", "connotation", "implication", "context", "significance"];
 const TYPE_LABEL: Record<string, string> = {
   definition: "Definition",
   pronunciation: "Pronunciation",
@@ -36,6 +36,8 @@ const TYPE_LABEL: Record<string, string> = {
   etymology: "Etymology",
   connotation: "Connotation",
   implication: "Implication",
+  context: "Context",
+  significance: "Significance",
 };
 
 function PencilIcon() {

@@ -23,6 +23,8 @@ const TYPE_LABEL: Record<string, string> = {
   etymology: "Etymology",
   connotation: "Connotation",
   implication: "Implication",
+  context: "Context",
+  significance: "Significance",
 };
 
 function renderBack(card: CardWithWord): React.ReactNode {

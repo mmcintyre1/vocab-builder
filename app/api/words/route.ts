@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const entryType: "word" | "concept" = body.entryType === "concept" ? "concept" : "word";
+      const entryType: "word" | "concept" | "reference" =
+        body.entryType === "concept" ? "concept" :
+        body.entryType === "reference" ? "reference" : "word";
       const wordData = await generateWordData(wordStr, anthropic, entryType);
 
       // Insert word

@@ -58,6 +58,8 @@ export function extractWordData(entries: DictionaryEntry[]): WordData {
     etymology: entry.origin ?? null,
     connotation: null,
     implication: null,
+    context: null,
+    significance: null,
   };
 }
 
