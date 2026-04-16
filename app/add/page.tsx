@@ -209,7 +209,6 @@ export default function AddPage() {
               autoCapitalize="none"
               autoCorrect="off"
               autoComplete="off"
-              spellCheck={false}
             />
             <div className="relative">
               <input
