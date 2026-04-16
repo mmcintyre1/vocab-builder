@@ -17,7 +17,7 @@ export interface ReviewResult {
 
 // FSRS-5 default weights
 export const DEFAULT_WEIGHTS: readonly number[] = [
-  0.4072, 1.1829, 3.1262, 15.4722, // w0–w3: initial stability per rating
+  0.4072, 1.1829, 3.1262, 5.0,     // w0–w3: initial stability per rating (w3 reduced from 15.47 — easier first-review intervals)
   7.2102,  // w4: initial difficulty
   0.5316,  // w5: difficulty delta
   1.0651,  // w6

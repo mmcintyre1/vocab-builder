@@ -53,6 +53,7 @@ export default function StudyPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
+  const [showRatingGuide, setShowRatingGuide] = useState(false);
   const [undoCard, setUndoCard] = useState<CardWithWord | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
@@ -323,12 +324,37 @@ export default function StudyPage() {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-center" style={{ color: "var(--text-faint)" }}>
-                ← swipe again · swipe easy →
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+                  ← swipe again · swipe easy →
+                </p>
+                <button
+                  onClick={() => setShowRatingGuide((v) => !v)}
+                  className="text-xs transition-colors"
+                  style={{ color: showRatingGuide ? "var(--text-muted)" : "var(--text-faint)" }}
+                  aria-label="Rating guide"
+                >
+                  ?
+                </button>
+              </div>
               <p className="hidden sm:block text-xs text-center" style={{ color: "var(--text-faint)" }}>
                 keys: 1 again · 2 hard · 3 good · 4 easy · space reveal
               </p>
+              {showRatingGuide && (
+                <div className="rounded-xl px-4 py-3 flex flex-col gap-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  {[
+                    { label: "Again", color: "#fca5a5", desc: "Couldn't recall it, or had to guess" },
+                    { label: "Hard",  color: "#fdba74", desc: "Recalled it, but slowly or with effort" },
+                    { label: "Good",  color: "#86efac", desc: "Recalled correctly with normal effort" },
+                    { label: "Easy",  color: "#93c5fd", desc: "Instant — no hesitation at all" },
+                  ].map(({ label, color, desc }) => (
+                    <div key={label} className="flex items-baseline gap-2">
+                      <span className="text-xs font-medium w-10 shrink-0" style={{ color }}>{label}</span>
+                      <span className="text-xs leading-snug" style={{ color: "var(--text-muted)" }}>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </>
