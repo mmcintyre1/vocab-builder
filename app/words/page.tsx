@@ -38,6 +38,7 @@ export default function WordsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterSource, setFilterSource] = useState("");
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const fetchWords = useCallback(async () => {
     setLoading(true);
@@ -62,10 +63,19 @@ export default function WordsPage() {
 
   const totalDue = words.reduce((n, w) => n + dueCount(w.cards), 0);
 
-  async function deleteWord(id: string, wordStr: string) {
-    if (!confirm(`Delete "${wordStr}"?`)) return;
+  async function deleteWord(id: string) {
+    setConfirmingId(null);
     setWords((prev) => prev.filter((w) => w.id !== id));
     await fetch(`/api/words/${id}`, { method: "DELETE", headers: { "x-pin": getPin() } });
+  }
+
+  function handleDeleteTap(id: string) {
+    if (confirmingId === id) {
+      deleteWord(id);
+    } else {
+      setConfirmingId(id);
+      setTimeout(() => setConfirmingId((c) => (c === id ? null : c)), 3000);
+    }
   }
 
   return (
@@ -153,14 +163,16 @@ export default function WordsPage() {
                   })()}
                 </div>
 
-                {/* Delete — always visible on mobile */}
+                {/* Delete — two-tap confirm; p-2 gives 44px tap target */}
                 <button
-                  onClick={(e) => { e.preventDefault(); deleteWord(w.id, w.word); }}
-                  className="shrink-0 transition-colors hover:text-red-400"
-                  style={{ color: "var(--text-muted)" }}
-                  aria-label="Delete"
+                  onClick={(e) => { e.preventDefault(); handleDeleteTap(w.id); }}
+                  className="shrink-0 p-2 -mr-2 transition-colors"
+                  style={{ color: confirmingId === w.id ? "#f87171" : "var(--text-muted)" }}
+                  aria-label={confirmingId === w.id ? "Confirm delete" : "Delete"}
                 >
-                  <TrashIcon />
+                  {confirmingId === w.id
+                    ? <span className="text-xs font-medium">Delete?</span>
+                    : <TrashIcon />}
                 </button>
               </li>
             );

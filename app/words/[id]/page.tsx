@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
@@ -176,7 +177,7 @@ function CardRow({ card, forceEdit, onUpdate }: {
         {!forceEdit && (
           <button
             onClick={() => setLocalEditing((e) => !e)}
-            className="transition-colors"
+            className="p-2 -mr-2 -mt-1 transition-colors"
             style={{ color: "var(--text)" }}
             aria-label={localEditing ? "Cancel edit" : "Edit card"}
           >
@@ -240,6 +241,7 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [allSources, setAllSources] = useState<string[]>([]);
   const [revealAll, setRevealAll] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const sourceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -280,7 +282,6 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
 
   async function handleDelete() {
     if (!word) return;
-    if (!confirm(`Delete "${word.word}" and all its cards?`)) return;
     await fetch(`/api/words/${word.id}`, { method: "DELETE", headers: { "x-pin": getPin() } });
     router.push("/words");
   }
@@ -294,6 +295,14 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Back link — visible in standalone PWA where there's no browser chrome */}
+      <Link href="/words" className="flex items-center gap-1 -mb-2 w-fit" style={{ color: "var(--text-muted)" }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        <span className="text-sm">Words</span>
+      </Link>
+
       {/* Header */}
       <div className="flex flex-col gap-2 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-start justify-between gap-3">
@@ -303,10 +312,11 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
           >
             {word.word}
           </h1>
+          {/* Trash — p-2 gives 44px tap target; first tap arms confirm */}
           <button
-            onClick={handleDelete}
-            className="transition-colors hover:text-red-400 mt-1 shrink-0"
-            style={{ color: "var(--text)" }}
+            onClick={() => setConfirmingDelete(true)}
+            className="p-2 -mr-2 -mt-1 shrink-0 transition-colors hover:text-red-400"
+            style={{ color: "var(--text-muted)" }}
             aria-label="Delete word"
           >
             <TrashIcon />
@@ -316,6 +326,17 @@ export default function WordDetailPage({ params }: { params: Promise<{ id: strin
           Added {new Date(word.added_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
         </span>
       </div>
+
+      {/* Inline delete confirmation — replaces window.confirm() */}
+      {confirmingDelete && (
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl -mt-3" style={{ background: "color-mix(in srgb, #dc2626 10%, var(--surface))", border: "1px solid color-mix(in srgb, #dc2626 30%, transparent)" }}>
+          <span className="text-sm" style={{ color: "#fca5a5" }}>Delete "{word.word}" and all its cards?</span>
+          <div className="flex gap-4 ml-3 shrink-0">
+            <button onClick={() => setConfirmingDelete(false)} className="text-sm" style={{ color: "var(--text-muted)" }}>Cancel</button>
+            <button onClick={handleDelete} className="text-sm font-medium" style={{ color: "#f87171" }}>Delete</button>
+          </div>
+        </div>
+      )}
 
       {/* Source */}
       <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>

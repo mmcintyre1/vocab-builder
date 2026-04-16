@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#0f0e0d",
 };
 
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ServiceWorkerRegistration />
         <PinGate>
           <Nav />
-          <main className="max-w-lg mx-auto px-4 pt-20 pb-8">
+          <main className="max-w-lg mx-auto px-4" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top) + 1.5rem)", paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}>
             {children}
           </main>
         </PinGate>

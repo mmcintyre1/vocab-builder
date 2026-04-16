@@ -22,7 +22,8 @@ body {
 }
 
 .input-field {
-  @apply w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-shadow;
+  @apply w-full rounded-lg px-3 py-2.5 outline-none transition-shadow;
+  font-size: 1rem; /* 16px — prevents iOS Safari auto-zoom on focus */
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text);

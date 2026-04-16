@@ -48,9 +48,12 @@ export default function Nav() {
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-50 flex items-center px-4 h-14"
+      className="fixed top-0 left-0 right-0 z-50 flex flex-col"
       style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}
     >
+      {/* Safe area spacer — fills notch/Dynamic Island on iOS */}
+      <div style={{ height: "env(safe-area-inset-top)" }} />
+      <div className="flex items-center px-4 h-14">
       {/* Wordmark → stats */}
       <Link
         href="/stats"
@@ -89,6 +92,7 @@ export default function Nav() {
             </Link>
           );
         })}
+      </div>
       </div>
     </nav>
   );

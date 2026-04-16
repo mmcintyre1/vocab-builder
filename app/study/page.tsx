@@ -158,6 +158,8 @@ export default function StudyPage() {
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
+    // Ignore touches within 20px of left edge — iOS back-gesture zone
+    if (t.clientX < 20) return;
     touchStart.current = { x: t.clientX, y: t.clientY };
     setDragX(0);
     setSwipeHint(null);
@@ -187,7 +189,7 @@ export default function StudyPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Progress bar — fixed directly under nav, always rendered */}
-      <div className="fixed left-0 right-0" style={{ top: 56, zIndex: 49 }}>
+      <div className="fixed left-0 right-0" style={{ top: "calc(3.5rem + env(safe-area-inset-top))", zIndex: 49 }}>
         {/* Track */}
         <div className="h-1 w-full" style={{ background: "var(--border-subtle)" }}>
           <div
@@ -282,6 +284,7 @@ export default function StudyPage() {
               border: `1px solid ${swipeHint === "again" ? "color-mix(in srgb, #dc2626 50%, var(--border))" : swipeHint === "easy" ? "color-mix(in srgb, #2563eb 50%, var(--border))" : "var(--border)"}`,
               transform: revealed ? `translateX(${Math.max(-30, Math.min(30, dragX * 0.3))}px)` : "none",
               transition: dragX === 0 ? "transform 0.2s ease, border-color 0.15s" : "border-color 0.15s",
+              touchAction: "pan-y",
             }}
             onClick={() => !revealed && setRevealed(true)}
             onTouchStart={handleTouchStart}
