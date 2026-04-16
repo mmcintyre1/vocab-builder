@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { makeCloze, isClozeUsable, buildCards, wordDataPrompt, conceptDataPrompt } from "./generate";
+import { makeCloze, isClozeUsable, buildCards, wordDataPrompt, conceptDataPrompt, referenceDataPrompt } from "./generate";
 import type { WordData } from "@/lib/dictionary/types";
 
 describe("makeCloze", () => {
@@ -195,5 +195,81 @@ describe("conceptDataPrompt", () => {
   it("includes the target concept in the prompt", () => {
     const prompt = conceptDataPrompt("dialectic");
     expect(prompt).toContain("dialectic");
+  });
+});
+
+const sampleReferenceData: WordData = {
+  word: "the Pelagian heresy",
+  definition: "5th-century doctrine denying original sin, asserting human free will",
+  allDefinitions: ["5th-century doctrine denying original sin, asserting human free will"],
+  simplePhonetic: null,
+  audioUrl: null,
+  exampleSentence: "The Pelagian heresy was condemned at the Council of Carthage in 418.",
+  etymology: null,
+  connotation: null,
+  implication: null,
+  context: "Condemned by Augustine and the Church councils of 418 AD; named after the British monk Pelagius.",
+  significance: "Invoked to challenge doctrines of grace; signals a debate about human nature and divine sovereignty.",
+};
+
+describe("buildCards (reference entry type)", () => {
+  it("produces definition, cloze, context, and significance cards", () => {
+    const cards = buildCards(sampleReferenceData, "reference");
+    expect(cards.find((c) => c.type === "definition")).toBeDefined();
+    expect(cards.find((c) => c.type === "cloze")).toBeDefined();
+    expect(cards.find((c) => c.type === "context")).toBeDefined();
+    expect(cards.find((c) => c.type === "significance")).toBeDefined();
+  });
+
+  it("does not produce pronunciation, etymology, connotation, or implication cards", () => {
+    const cards = buildCards(sampleReferenceData, "reference");
+    expect(cards.find((c) => c.type === "pronunciation")).toBeUndefined();
+    expect(cards.find((c) => c.type === "etymology")).toBeUndefined();
+    expect(cards.find((c) => c.type === "connotation")).toBeUndefined();
+    expect(cards.find((c) => c.type === "implication")).toBeUndefined();
+  });
+
+  it("context card asks when/where/who", () => {
+    const cards = buildCards(sampleReferenceData, "reference");
+    const ctx = cards.find((c) => c.type === "context")!;
+    expect(ctx.front).toContain("the Pelagian heresy");
+    expect(ctx.back).toContain("Augustine");
+  });
+
+  it("significance card asks what invoking the name signals", () => {
+    const cards = buildCards(sampleReferenceData, "reference");
+    const sig = cards.find((c) => c.type === "significance")!;
+    expect(sig.front).toContain("the Pelagian heresy");
+    expect(sig.back).toContain("grace");
+  });
+
+  it("skips context card when context is null", () => {
+    const data = { ...sampleReferenceData, context: null };
+    const cards = buildCards(data, "reference");
+    expect(cards.find((c) => c.type === "context")).toBeUndefined();
+  });
+
+  it("skips significance card when significance is null", () => {
+    const data = { ...sampleReferenceData, significance: null };
+    const cards = buildCards(data, "reference");
+    expect(cards.find((c) => c.type === "significance")).toBeUndefined();
+  });
+});
+
+describe("referenceDataPrompt", () => {
+  it("instructs Claude to keep definition under 12 words", () => {
+    const prompt = referenceDataPrompt("the Maginot Line");
+    expect(prompt).toMatch(/12\s*words?/i);
+  });
+
+  it("includes the reference name in the prompt", () => {
+    const prompt = referenceDataPrompt("the Maginot Line");
+    expect(prompt).toContain("the Maginot Line");
+  });
+
+  it("asks for context and significance fields", () => {
+    const prompt = referenceDataPrompt("the Maginot Line");
+    expect(prompt).toContain("context");
+    expect(prompt).toContain("significance");
   });
 });
