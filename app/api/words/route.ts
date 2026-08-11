@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase/client";
-import { buildCards, generateWordData } from "@/lib/cards/generate";
+import { buildCards, generateWordData, CardDraft } from "@/lib/cards/generate";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/words — add one or more words
-// Body: { words: string[], source?: string } OR { word: string, source?: string, notes?: string }
+// Body: { words: string[], source?: string } OR
+//       { word: string, source?: string, notes?: string, cards?: CardDraft[] }
+// When `cards` is provided (single-word add), those exact previously-previewed
+// cards are persisted instead of generating new ones, so what the user reviewed
+// is what gets saved.
 export async function POST(request: NextRequest) {
   const pin = getPinFromRequest(request);
   if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -80,7 +84,6 @@ export async function POST(request: NextRequest) {
       const entryType: "word" | "concept" | "reference" =
         body.entryType === "concept" ? "concept" :
         body.entryType === "reference" ? "reference" : "word";
-      const wordData = await generateWordData(wordStr, anthropic, entryType);
 
       // Insert word
       const { data: word, error: wordErr } = await supabase
@@ -97,11 +100,20 @@ export async function POST(request: NextRequest) {
 
       if (wordErr) throw new Error(wordErr.message);
 
-      // Generate and insert cards — filter to selected types if specified
-      const includeTypes: string[] | undefined = body.includeTypes;
-      const cardDrafts = buildCards(wordData, entryType).filter(
-        (c) => !includeTypes || includeTypes.includes(c.type)
-      );
+      // If the client already previewed this word, reuse those exact cards
+      // instead of regenerating (Claude is non-deterministic, so a second
+      // call would produce content that differs from what the user reviewed).
+      let cardDrafts: CardDraft[];
+      if (!body.words && Array.isArray(body.cards)) {
+        cardDrafts = body.cards;
+      } else {
+        const wordData = await generateWordData(wordStr, anthropic, entryType);
+        const includeTypes: string[] | undefined = body.includeTypes;
+        cardDrafts = buildCards(wordData, entryType).filter(
+          (c) => !includeTypes || includeTypes.includes(c.type)
+        );
+      }
+
       const { error: cardsErr } = await supabase.from("cards").insert(
         cardDrafts.map((c) => ({ ...c, word_id: word.id }))
       );

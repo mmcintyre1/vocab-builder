@@ -112,10 +112,11 @@ export default function AddPage() {
     if (!preview) return;
     setLoading(true);
 
+    const cards = preview.cards.filter((c) => selectedTypes.has(c.type));
     const res = await fetch("/api/words", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ word: preview.word, entryType, source: source.trim() || null, notes: notes.trim() || null, includeTypes: [...selectedTypes] }),
+      body: JSON.stringify({ word: preview.word, entryType, source: source.trim() || null, notes: notes.trim() || null, cards }),
     });
     const data = await res.json();
     setErrors(data.errors ?? []);
