@@ -67,6 +67,25 @@ function TrashIcon() {
   );
 }
 
+function RefreshIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+function SparklesIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+      <path d="M19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z" />
+    </svg>
+  );
+}
+
 function formatReviewStats(card: Card): string {
   const due = new Date(card.next_review) <= new Date();
   if (card.reps === 0 && card.lapses === 0) return "never reviewed · due now";
@@ -138,6 +157,9 @@ function CardRow({ card, forceEdit, onUpdate }: {
   const [front, setFront] = useState(card.front ?? "");
   const [back, setBack] = useState(cleanBack);
   const [saving, setSaving] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"reset" | "regenerate" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setFront(card.front ?? "");
@@ -165,6 +187,52 @@ function CardRow({ card, forceEdit, onUpdate }: {
     setLocalEditing(false);
   }
 
+  function openAction(action: "reset" | "regenerate") {
+    setActionError(null);
+    setPendingAction(action);
+  }
+
+  async function handleReset() {
+    setBusy(true);
+    const res = await fetch(`/api/cards/${card.id}/reset`, {
+      method: "POST",
+      headers: { "x-pin": getPin() },
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      onUpdate(card.id, {
+        stability: updated.stability,
+        reps: updated.reps,
+        lapses: updated.lapses,
+        last_review: updated.last_review,
+        next_review: updated.next_review,
+        reviews: [],
+      });
+      setPendingAction(null);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error ?? "Reset failed");
+    }
+    setBusy(false);
+  }
+
+  async function handleRegenerate() {
+    setBusy(true);
+    const res = await fetch(`/api/cards/${card.id}/regenerate`, {
+      method: "POST",
+      headers: { "x-pin": getPin() },
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      onUpdate(card.id, { front: updated.front, back: updated.back });
+      setPendingAction(null);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error ?? "Regeneration failed");
+    }
+    setBusy(false);
+  }
+
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
@@ -174,19 +242,67 @@ function CardRow({ card, forceEdit, onUpdate }: {
         >
           {TYPE_LABEL[card.type] ?? card.type}
         </span>
-        {!forceEdit && (
-          <button
-            onClick={() => setLocalEditing((e) => !e)}
-            className="p-2 -mr-2 -mt-1 transition-colors"
-            style={{ color: "var(--text)" }}
-            aria-label={localEditing ? "Cancel edit" : "Edit card"}
-          >
-            <PencilIcon />
-          </button>
+        {!forceEdit && !pendingAction && (
+          <div className="flex items-center -mr-2 -mt-1">
+            <button
+              onClick={() => setLocalEditing((e) => !e)}
+              className="p-2 transition-colors"
+              style={{ color: "var(--text)" }}
+              aria-label={localEditing ? "Cancel edit" : "Edit card"}
+            >
+              <PencilIcon />
+            </button>
+            <button
+              onClick={() => openAction("reset")}
+              className="p-2 transition-colors"
+              style={{ color: "var(--text)" }}
+              aria-label="Reset review progress"
+            >
+              <RefreshIcon />
+            </button>
+            <button
+              onClick={() => openAction("regenerate")}
+              className="p-2 transition-colors"
+              style={{ color: "var(--text)" }}
+              aria-label="Regenerate card"
+            >
+              <SparklesIcon />
+            </button>
+          </div>
         )}
       </div>
 
-      {editing ? (
+      {actionError && !pendingAction && (
+        <p className="px-4 pb-2 -mt-1 text-xs" style={{ color: "#f87171" }}>{actionError}</p>
+      )}
+
+      {pendingAction ? (
+        <div className="px-4 pb-4 flex items-center justify-between gap-3">
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+            {busy
+              ? pendingAction === "reset" ? "Resetting…" : "Regenerating…"
+              : pendingAction === "reset" ? "Reset review progress?" : "Regenerate this card?"}
+          </span>
+          <div className="flex gap-4 shrink-0">
+            <button
+              onClick={() => setPendingAction(null)}
+              disabled={busy}
+              className="text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={pendingAction === "reset" ? handleReset : handleRegenerate}
+              disabled={busy}
+              className="text-sm font-medium"
+              style={{ color: pendingAction === "reset" ? "#f87171" : "var(--accent-fg)" }}
+            >
+              {busy ? "…" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      ) : editing ? (
         <div className="px-4 pb-4 flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs" style={{ color: "var(--text-muted)" }}>Front</label>
