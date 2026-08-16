@@ -60,6 +60,15 @@ function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
 }
 
+function SparklesIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+      <path d="M19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z" />
+    </svg>
+  );
+}
+
 export default function AddPage() {
   const [mode, setMode] = useState<Mode>("single");
   const [entryType, setEntryType] = useState<EntryType>("word");
@@ -81,6 +90,7 @@ export default function AddPage() {
   const [customSystem, setCustomSystem] = useState("");
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [savingDefault, setSavingDefault] = useState(false);
+  const [regeneratingType, setRegeneratingType] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSources() {
@@ -168,6 +178,29 @@ export default function AddPage() {
       setErrors([{ word: word.trim(), error: data.error ?? "Lookup failed" }]);
     }
     setLoading(false);
+  }
+
+  async function handleRegenerateCard(cardType: string) {
+    if (!preview) return;
+    setRegeneratingType(cardType);
+    const res = await fetch("/api/words/preview/regenerate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({
+        word: preview.word,
+        entryType,
+        cardType,
+        ...(showCustomize ? { promptOverrides: { systemPrompt: customSystem, fields: customFields } } : {}),
+      }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setPreview((prev) => prev ? {
+        ...prev,
+        cards: prev.cards.map((c) => c.type === cardType ? { ...c, front: updated.front, back: updated.back } : c),
+      } : prev);
+    }
+    setRegeneratingType(null);
   }
 
   async function handleConfirmAdd() {
@@ -399,31 +432,45 @@ export default function AddPage() {
                           <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                             {TYPE_LABEL[c.type] ?? c.type}
                           </span>
-                          {/* Pill toggle */}
-                          <button
-                            type="button"
-                            onClick={toggle}
-                            className="shrink-0 rounded-full transition-colors"
-                            style={{
-                              width: 36, height: 20,
-                              background: on ? "var(--accent)" : "var(--border)",
-                              position: "relative",
-                            }}
-                            aria-label={on ? `Remove ${TYPE_LABEL[c.type]} card` : `Add ${TYPE_LABEL[c.type]} card`}
-                          >
-                            <span
-                              className="absolute rounded-full transition-all"
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRegenerateCard(c.type)}
+                              disabled={regeneratingType !== null}
+                              className="p-1 transition-colors"
+                              style={{ color: "var(--text-muted)", opacity: regeneratingType === c.type ? 0.5 : 1 }}
+                              aria-label={`Regenerate ${TYPE_LABEL[c.type] ?? c.type} card`}
+                            >
+                              <SparklesIcon />
+                            </button>
+                            {/* Pill toggle */}
+                            <button
+                              type="button"
+                              onClick={toggle}
+                              className="shrink-0 rounded-full transition-colors"
                               style={{
-                                width: 14, height: 14,
-                                top: 3,
-                                left: on ? 19 : 3,
-                                background: "var(--bg)",
+                                width: 36, height: 20,
+                                background: on ? "var(--accent)" : "var(--border)",
+                                position: "relative",
                               }}
-                            />
-                          </button>
+                              aria-label={on ? `Remove ${TYPE_LABEL[c.type]} card` : `Add ${TYPE_LABEL[c.type]} card`}
+                            >
+                              <span
+                                className="absolute rounded-full transition-all"
+                                style={{
+                                  width: 14, height: 14,
+                                  top: 3,
+                                  left: on ? 19 : 3,
+                                  background: "var(--bg)",
+                                }}
+                              />
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>{c.front}</p>
-                        {c.back && (
+                        <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+                          {regeneratingType === c.type ? "Regenerating…" : c.front}
+                        </p>
+                        {c.back && regeneratingType !== c.type && (
                           <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border-subtle)", paddingTop: "0.5rem", marginTop: "0.125rem" }}>{c.back}</p>
                         )}
                       </li>
