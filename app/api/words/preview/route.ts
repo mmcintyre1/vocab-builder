@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
-import { generateWordData, buildCards } from "@/lib/cards/generate";
+import { generateWordData, buildCards, PromptOverrides } from "@/lib/cards/generate";
+import { getGlobalOverrides, mergeOverrides } from "@/lib/cards/promptSettings";
 import { supabase } from "@/lib/supabase/client";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -15,7 +16,11 @@ export async function POST(request: NextRequest) {
   const pin = getPinFromRequest(request);
   if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { word: wordStr, entryType = "word" } = await request.json() as { word: string; entryType?: "word" | "concept" | "reference" };
+  const { word: wordStr, entryType = "word", promptOverrides } = await request.json() as {
+    word: string;
+    entryType?: "word" | "concept" | "reference";
+    promptOverrides?: PromptOverrides;
+  };
   if (!wordStr?.trim()) return NextResponse.json({ error: "word required" }, { status: 400 });
 
   // Daily preview rate limit
@@ -39,7 +44,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Already exists" }, { status: 409 });
   }
 
-  const wordData = await generateWordData(normalized, anthropic, entryType);
+  const globalOverrides = await getGlobalOverrides(entryType);
+  const effectiveOverrides = mergeOverrides(globalOverrides, promptOverrides);
+  const wordData = await generateWordData(normalized, anthropic, entryType, effectiveOverrides);
   const cards = buildCards(wordData, entryType);
 
   return NextResponse.json({

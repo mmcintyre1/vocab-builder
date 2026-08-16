@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase/client";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 import { buildCards, generateWordData } from "@/lib/cards/generate";
+import { getGlobalOverrides } from "@/lib/cards/promptSettings";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -43,7 +44,8 @@ export async function POST(
 
   regenerateToday.count++;
 
-  const wordData = await generateWordData(word.word, anthropic, word.entry_type);
+  const globalOverrides = await getGlobalOverrides(word.entry_type);
+  const wordData = await generateWordData(word.word, anthropic, word.entry_type, globalOverrides);
   const drafts = buildCards(wordData, word.entry_type);
   const draft = drafts.find((c) => c.type === card.type);
 

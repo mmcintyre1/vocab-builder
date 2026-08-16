@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { FIELD_SPECS, EntryType } from "@/lib/cards/prompts";
 
 type Mode = "single" | "bulk";
-type EntryType = "word" | "concept" | "reference";
 
 interface CardPreview {
   id?: string;
@@ -24,6 +24,25 @@ interface Result {
   id?: string;
   cards?: CardPreview[];
   error?: string;
+}
+
+const ENTRY_HELP: Record<EntryType, string> = {
+  word: "An actual vocabulary word — generates a definition, pronunciation, example sentence, etymology, and cultural connotation.",
+  concept: "An abstract idea or framework (e.g. \"confirmation bias\") — generates a definition, example sentence, etymology, and its broader implication.",
+  reference: "A named person, work, or event (e.g. \"the Pelagian heresy\") — generates a definition, example sentence, historical context, and what invoking it signals.",
+};
+
+interface FieldSetting {
+  label: string;
+  default: string;
+  custom: string | null;
+}
+
+interface PromptSettingsResponse {
+  system: { default: string; custom: string | null };
+  word: Record<string, FieldSetting>;
+  concept: Record<string, FieldSetting>;
+  reference: Record<string, FieldSetting>;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -57,6 +76,12 @@ export default function AddPage() {
   const [errors, setErrors] = useState<Result[]>([]);
   const [allSources, setAllSources] = useState<string[]>([]);
 
+  const [promptSettings, setPromptSettings] = useState<PromptSettingsResponse | null>(null);
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [customSystem, setCustomSystem] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+  const [savingDefault, setSavingDefault] = useState(false);
+
   useEffect(() => {
     async function loadSources() {
       const res = await fetch("/api/words", { headers: { "x-pin": getPin() } });
@@ -68,6 +93,39 @@ export default function AddPage() {
     }
     loadSources();
   }, []);
+
+  async function loadPromptSettings() {
+    const res = await fetch("/api/settings/prompts", { headers: { "x-pin": getPin() } });
+    if (res.ok) setPromptSettings(await res.json());
+  }
+
+  useEffect(() => {
+    loadPromptSettings();
+  }, []);
+
+  // Reset the customize panel's textareas to the effective (custom-or-default)
+  // values whenever the entry type changes or settings finish loading.
+  useEffect(() => {
+    if (!promptSettings) return;
+    setCustomSystem(promptSettings.system.custom ?? promptSettings.system.default);
+    const typeFields = promptSettings[entryType];
+    const next: Record<string, string> = {};
+    for (const spec of FIELD_SPECS[entryType]) {
+      next[spec.key] = typeFields[spec.key]?.custom ?? typeFields[spec.key]?.default ?? spec.instruction;
+    }
+    setCustomFields(next);
+  }, [entryType, promptSettings]);
+
+  async function handleSaveDefaultPrompt() {
+    setSavingDefault(true);
+    await fetch("/api/settings/prompts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({ system: customSystem, [entryType]: customFields }),
+    });
+    await loadPromptSettings();
+    setSavingDefault(false);
+  }
 
   async function fetchCards(id: string): Promise<CardPreview[]> {
     const res = await fetch(`/api/words/${id}`, { headers: { "x-pin": getPin() } });
@@ -95,7 +153,11 @@ export default function AddPage() {
     const res = await fetch("/api/words/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ word: word.trim(), entryType }),
+      body: JSON.stringify({
+        word: word.trim(),
+        entryType,
+        ...(showCustomize ? { promptOverrides: { systemPrompt: customSystem, fields: customFields } } : {}),
+      }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -202,6 +264,66 @@ export default function AddPage() {
                 </button>
               ))}
             </div>
+            <p className="text-xs -mt-1.5" style={{ color: "var(--text-muted)" }}>{ENTRY_HELP[entryType]}</p>
+
+            {showCustomize ? (
+              <div className="flex flex-col gap-3 rounded-xl px-3 py-3" style={{ border: "1px solid var(--border)" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+                    Prompt for this add
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomize(false)}
+                    className="text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    Hide
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>System prompt (shared across types)</label>
+                  <textarea
+                    value={customSystem}
+                    onChange={(e) => setCustomSystem(e.target.value)}
+                    rows={3}
+                    maxLength={1000}
+                    className="input-field resize-none text-xs"
+                  />
+                </div>
+                {FIELD_SPECS[entryType].map((spec) => (
+                  <div key={spec.key} className="flex flex-col gap-1">
+                    <label className="text-xs" style={{ color: "var(--text-muted)" }}>{spec.label}</label>
+                    <textarea
+                      value={customFields[spec.key] ?? ""}
+                      onChange={(e) => setCustomFields((f) => ({ ...f, [spec.key]: e.target.value }))}
+                      rows={2}
+                      maxLength={300}
+                      className="input-field resize-none text-xs"
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={handleSaveDefaultPrompt}
+                  disabled={savingDefault}
+                  className="text-xs text-left"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {savingDefault ? "Saving…" : "Save as default for future adds →"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCustomize(true)}
+                className="text-xs text-left transition-colors"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Customize prompt for this add →
+              </button>
+            )}
+
             <input
               type="text"
               placeholder={entryType === "concept" ? "Concept" : entryType === "reference" ? "Reference" : "Word"}

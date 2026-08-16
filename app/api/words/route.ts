@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/lib/supabase/client";
-import { buildCards, generateWordData, CardDraft } from "@/lib/cards/generate";
+import { buildCards, generateWordData, CardDraft, PromptOverrides } from "@/lib/cards/generate";
+import { getGlobalOverrides, mergeOverrides } from "@/lib/cards/promptSettings";
 import { checkPin, getPinFromRequest } from "@/lib/auth";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -107,7 +108,9 @@ export async function POST(request: NextRequest) {
       if (!body.words && Array.isArray(body.cards)) {
         cardDrafts = body.cards;
       } else {
-        const wordData = await generateWordData(wordStr, anthropic, entryType);
+        const globalOverrides = await getGlobalOverrides(entryType);
+        const effectiveOverrides = mergeOverrides(globalOverrides, body.promptOverrides as PromptOverrides | undefined);
+        const wordData = await generateWordData(wordStr, anthropic, entryType, effectiveOverrides);
         const includeTypes: string[] | undefined = body.includeTypes;
         cardDrafts = buildCards(wordData, entryType).filter(
           (c) => !includeTypes || includeTypes.includes(c.type)

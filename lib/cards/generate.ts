@@ -1,6 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { WordData } from "@/lib/dictionary/types";
 import { CardType } from "@/lib/supabase/types";
+import { DEFAULT_SYSTEM_PROMPT, buildPrompt, EntryType } from "./prompts";
+
+export interface PromptOverrides {
+  systemPrompt?: string;
+  fields?: Record<string, string>;
+}
 
 export interface CardDraft {
   type: CardType;
@@ -25,54 +31,23 @@ export function isClozeUsable(cloze: string, _word: string): boolean {
   return hasBlank && wordCount >= 6;
 }
 
-const SYSTEM_PROMPT =
-  "You are a vocabulary tutor building spaced repetition flashcards for a reader who regularly encounters literary, journalistic, and academic prose. " +
-  "Your goal is to produce content that helps the learner deeply encode each word — not just recognize its definition, but understand its sound, origin, usage, and cultural weight. " +
-  "Favour precision over breadth. Every field should be useful on a flashcard: concise enough to read at a glance, rich enough to be memorable. " +
-  "Each field should express exactly one fact or idea, phrased as a single clause where possible — favor a short simple sentence over a compound one.";
-
-export const wordDataPrompt = (word: string) =>
-  `Provide flashcard content for the word "${word}". Respond with a JSON object and no other text:
-{
-  "definition": "(part of speech) Under 12 words. State the core meaning only — no elaboration.",
-  "phonetic": "Syllable respelling with the stressed syllable in capitals, e.g. ih-FEM-er-ul or mah-KET. No IPA.",
-  "sentence": "A 10–20 word sentence in a literary or journalistic register. The word's meaning should be strongly inferable from context — a learner should be able to deduce it — but not trivially obvious.",
-  "etymology": "Language of origin and root meaning in one clause, max 14 words, e.g. 'From Latin pallium (cloak).' Return null if unremarkable.",
-  "connotation": "One clause, max 18 words, naming the word's key cultural, literary, or rhetorical association — e.g. its genre, tradition, or defining context. Return null if the word carries no notable connotation."
-}`;
-
-export const conceptDataPrompt = (concept: string) =>
-  `Provide flashcard content for the concept "${concept}". Respond with a JSON object and no other text:
-{
-  "definition": "(noun/concept) Under 12 words. State the core meaning only — no elaboration.",
-  "sentence": "A 10–20 word sentence where the concept's meaning is strongly inferable from context.",
-  "etymology": "Language of origin and root meaning in one clause, max 14 words, e.g. 'From Greek dialektikē (art of debate).' Return null if unremarkable.",
-  "implication": "One clause, max 20 words, stating the broader significance or intellectual consequence of this concept — what it implies about the world or how we reason."
-}`;
-
-export const referenceDataPrompt = (ref: string) =>
-  `Provide flashcard content for the named reference "${ref}". Respond with a JSON object and no other text:
-{
-  "definition": "Under 12 words. What it is — no elaboration.",
-  "sentence": "A 10–20 word sentence where the reference appears naturally in context.",
-  "context": "One clause, max 18 words: who created or coined it, when, and where. Ground it historically.",
-  "significance": "One clause, max 20 words: what invoking this name signals or implies — its rhetorical or intellectual afterlife."
-}`;
+// Kept for backward compatibility (tests, and anywhere a bare default prompt is useful)
+export const wordDataPrompt = (word: string) => buildPrompt("word", word);
+export const conceptDataPrompt = (concept: string) => buildPrompt("concept", concept);
+export const referenceDataPrompt = (ref: string) => buildPrompt("reference", ref);
 
 // Single Claude call — generates all word data
 export async function generateWordData(
   word: string,
   anthropic: Anthropic,
-  entryType: "word" | "concept" | "reference" = "word"
+  entryType: EntryType = "word",
+  overrides?: PromptOverrides
 ): Promise<WordData> {
-  const prompt =
-    entryType === "concept" ? conceptDataPrompt(word) :
-    entryType === "reference" ? referenceDataPrompt(word) :
-    wordDataPrompt(word);
+  const prompt = buildPrompt(entryType, word, overrides);
   const message = await anthropic.messages.create({
     model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
     max_tokens: 600,
-    system: SYSTEM_PROMPT,
+    system: overrides?.systemPrompt || DEFAULT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
   });
 
