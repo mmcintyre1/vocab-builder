@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FIELD_SPECS, EntryType } from "@/lib/cards/prompts";
+import CollapsibleField from "@/components/CollapsibleField";
 
 type Mode = "single" | "bulk";
 
@@ -91,6 +92,7 @@ export default function AddPage() {
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [savingDefault, setSavingDefault] = useState(false);
   const [regeneratingType, setRegeneratingType] = useState<string | null>(null);
+  const [showEntryHelp, setShowEntryHelp] = useState(false);
 
   useEffect(() => {
     async function loadSources() {
@@ -297,10 +299,30 @@ export default function AddPage() {
                 </button>
               ))}
             </div>
-            <p className="text-xs -mt-1.5" style={{ color: "var(--text-muted)" }}>{ENTRY_HELP[entryType]}</p>
+            {showEntryHelp ? (
+              <p className="text-xs -mt-1.5" style={{ color: "var(--text-muted)" }}>
+                {ENTRY_HELP[entryType]}{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowEntryHelp(false)}
+                  className="underline underline-offset-2"
+                >
+                  hide
+                </button>
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowEntryHelp(true)}
+                className="text-xs text-left -mt-1.5 transition-colors"
+                style={{ color: "var(--text-faint)" }}
+              >
+                What's the difference? →
+              </button>
+            )}
 
             {showCustomize ? (
-              <div className="flex flex-col gap-3 rounded-xl px-3 py-3" style={{ border: "1px solid var(--border)" }}>
+              <div className="flex flex-col gap-2 rounded-xl px-3 py-3" style={{ border: "1px solid var(--border)" }}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                     Prompt for this add
@@ -314,27 +336,22 @@ export default function AddPage() {
                     Hide
                   </button>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>System prompt (shared across types)</label>
-                  <textarea
-                    value={customSystem}
-                    onChange={(e) => setCustomSystem(e.target.value)}
-                    rows={3}
-                    maxLength={1000}
-                    className="input-field resize-none text-xs"
-                  />
-                </div>
+                <CollapsibleField
+                  label="System prompt (shared across types)"
+                  value={customSystem}
+                  onChange={setCustomSystem}
+                  maxLength={1000}
+                  rows={4}
+                />
                 {FIELD_SPECS[entryType].map((spec) => (
-                  <div key={spec.key} className="flex flex-col gap-1">
-                    <label className="text-xs" style={{ color: "var(--text-muted)" }}>{spec.label}</label>
-                    <textarea
-                      value={customFields[spec.key] ?? ""}
-                      onChange={(e) => setCustomFields((f) => ({ ...f, [spec.key]: e.target.value }))}
-                      rows={2}
-                      maxLength={300}
-                      className="input-field resize-none text-xs"
-                    />
-                  </div>
+                  <CollapsibleField
+                    key={spec.key}
+                    label={spec.label}
+                    value={customFields[spec.key] ?? ""}
+                    onChange={(v) => setCustomFields((f) => ({ ...f, [spec.key]: v }))}
+                    maxLength={300}
+                    rows={3}
+                  />
                 ))}
                 <button
                   type="button"

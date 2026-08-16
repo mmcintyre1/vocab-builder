@@ -88,7 +88,9 @@ export async function PATCH(request: NextRequest) {
 }
 
 // DELETE /api/settings/prompts — reset to built-in default
-// Body: { scope: "system" } or { scope: "fields", entryType: "word" | "concept" | "reference" }
+// Body: { scope: "system" }
+//    or { scope: "fields", entryType } — resets every field for that type
+//    or { scope: "fields", entryType, field } — resets just that one field
 export async function DELETE(request: NextRequest) {
   const pin = getPinFromRequest(request);
   if (!checkPin(pin)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -98,7 +100,26 @@ export async function DELETE(request: NextRequest) {
   if (body.scope === "system") {
     await supabase.from("prompt_settings").delete().eq("key", "system");
   } else if (body.scope === "fields" && ENTRY_TYPES.includes(body.entryType)) {
-    await supabase.from("prompt_settings").delete().eq("key", `fields:${body.entryType}`);
+    if (typeof body.field === "string") {
+      const { data: existing } = await supabase
+        .from("prompt_settings")
+        .select("value")
+        .eq("key", `fields:${body.entryType}`)
+        .maybeSingle();
+
+      const next: Record<string, string> = { ...(existing?.value ?? {}) };
+      delete next[body.field];
+
+      if (Object.keys(next).length > 0) {
+        await supabase
+          .from("prompt_settings")
+          .upsert({ key: `fields:${body.entryType}`, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" });
+      } else {
+        await supabase.from("prompt_settings").delete().eq("key", `fields:${body.entryType}`);
+      }
+    } else {
+      await supabase.from("prompt_settings").delete().eq("key", `fields:${body.entryType}`);
+    }
   } else {
     return NextResponse.json({ error: "Invalid scope" }, { status: 400 });
   }

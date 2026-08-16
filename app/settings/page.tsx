@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FIELD_SPECS, EntryType } from "@/lib/cards/prompts";
+import CollapsibleField from "@/components/CollapsibleField";
 
 function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
@@ -23,16 +24,54 @@ interface PromptSettingsResponse {
 const ENTRY_TYPES: EntryType[] = ["word", "concept", "reference"];
 const ENTRY_LABEL: Record<EntryType, string> = { word: "Word", concept: "Concept", reference: "Reference" };
 
+function SaveResetFooter({
+  onSave,
+  onReset,
+  saving,
+  resetting,
+  customized,
+}: {
+  onSave: () => void;
+  onReset: () => void;
+  saving: boolean;
+  resetting: boolean;
+  customized: boolean;
+}) {
+  const disabled = saving || resetting;
+  return (
+    <div className="flex items-center justify-between">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={disabled}
+        className="text-xs font-medium"
+        style={{ color: "var(--accent-fg)" }}
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+      {customized && (
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={disabled}
+          className="text-xs"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {resetting ? "Resetting…" : "Reset to default"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PromptSettingsResponse | null>(null);
   const [systemDraft, setSystemDraft] = useState("");
   const [fieldDrafts, setFieldDrafts] = useState<Record<EntryType, Record<string, string>>>({
     word: {}, concept: {}, reference: {},
   });
-  const [savingSystem, setSavingSystem] = useState(false);
-  const [savingType, setSavingType] = useState<EntryType | null>(null);
-  const [confirmingReset, setConfirmingReset] = useState<"system" | EntryType | null>(null);
-  const [resetting, setResetting] = useState(false);
+  const [systemBusy, setSystemBusy] = useState<"save" | "reset" | null>(null);
+  const [busyField, setBusyField] = useState<string | null>(null); // "<type>:<key>:save" | "...:reset"
 
   async function load() {
     const res = await fetch("/api/settings/prompts", { headers: { "x-pin": getPin() } });
@@ -54,156 +93,111 @@ export default function SettingsPage() {
   }, []);
 
   async function saveSystem() {
-    setSavingSystem(true);
+    setSystemBusy("save");
     await fetch("/api/settings/prompts", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
       body: JSON.stringify({ system: systemDraft }),
     });
     await load();
-    setSavingSystem(false);
+    setSystemBusy(null);
   }
 
-  async function saveType(type: EntryType) {
-    setSavingType(type);
-    await fetch("/api/settings/prompts", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ [type]: fieldDrafts[type] }),
-    });
-    await load();
-    setSavingType(null);
-  }
-
-  async function confirmReset() {
-    if (!confirmingReset) return;
-    setResetting(true);
-    const body = confirmingReset === "system"
-      ? { scope: "system" }
-      : { scope: "fields", entryType: confirmingReset };
+  async function resetSystem() {
+    setSystemBusy("reset");
     await fetch("/api/settings/prompts", {
       method: "DELETE",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ scope: "system" }),
     });
     await load();
-    setResetting(false);
-    setConfirmingReset(null);
+    setSystemBusy(null);
+  }
+
+  async function saveField(type: EntryType, key: string) {
+    setBusyField(`${type}:${key}:save`);
+    await fetch("/api/settings/prompts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({ [type]: { [key]: fieldDrafts[type][key] } }),
+    });
+    await load();
+    setBusyField(null);
+  }
+
+  async function resetField(type: EntryType, key: string) {
+    setBusyField(`${type}:${key}:reset`);
+    await fetch("/api/settings/prompts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "x-pin": getPin() },
+      body: JSON.stringify({ scope: "fields", entryType: type, field: key }),
+    });
+    await load();
+    setBusyField(null);
   }
 
   if (!settings) return <div className="py-8 text-center" style={{ color: "var(--text-muted)" }}>Loading…</div>;
 
-  const systemCustomized = settings.system.custom !== null;
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
-        <h1 className="font-semibold tracking-tight" style={{ color: "var(--text)", fontSize: "clamp(1.6rem, 6vw, 2.2rem)" }}>
-          Prompt settings
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>Prompt settings</h1>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          These are the global defaults used whenever you add a word, concept, or reference. You can also override them for a single add from the Add page.
+          Global defaults used whenever you add a word, concept, or reference. Override any single add from the Add page instead.
         </p>
       </div>
 
-      {/* System prompt */}
-      <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            System prompt (shared across types)
-          </span>
-          {systemCustomized && (
-            <span className="text-xs" style={{ color: "var(--accent-fg)" }}>customized</span>
-          )}
-        </div>
-        <div className="px-4 pb-4 flex flex-col gap-3">
-          <textarea
-            value={systemDraft}
-            onChange={(e) => setSystemDraft(e.target.value)}
-            rows={4}
-            maxLength={1000}
-            className="input-field resize-none text-sm"
-          />
-          {confirmingReset === "system" ? (
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {resetting ? "Resetting…" : "Reset to built-in default?"}
-              </span>
-              <div className="flex gap-4 shrink-0">
-                <button onClick={() => setConfirmingReset(null)} disabled={resetting} className="text-sm" style={{ color: "var(--text-muted)" }}>Cancel</button>
-                <button onClick={confirmReset} disabled={resetting} className="text-sm font-medium" style={{ color: "#f87171" }}>Confirm</button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <button onClick={saveSystem} disabled={savingSystem} className="btn-primary" style={{ width: "auto", paddingLeft: "1rem", paddingRight: "1rem" }}>
-                {savingSystem ? "Saving…" : "Save"}
-              </button>
-              {systemCustomized && (
-                <button onClick={() => setConfirmingReset("system")} className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  Reset to default
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>System prompt</h2>
+        <CollapsibleField
+          label="Shared across all types"
+          badge={settings.system.custom !== null ? "customized" : undefined}
+          value={systemDraft}
+          onChange={setSystemDraft}
+          maxLength={1000}
+          rows={4}
+          footer={
+            <SaveResetFooter
+              onSave={saveSystem}
+              onReset={resetSystem}
+              saving={systemBusy === "save"}
+              resetting={systemBusy === "reset"}
+              customized={settings.system.custom !== null}
+            />
+          }
+        />
       </div>
 
-      {/* Per entry-type field instructions */}
-      {ENTRY_TYPES.map((type) => {
-        const customized = FIELD_SPECS[type].some((spec) => settings[type][spec.key]?.custom !== null);
-        return (
-          <div key={type} className="rounded-xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <div className="flex items-center justify-between px-4 pt-3 pb-2">
-              <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                {ENTRY_LABEL[type]} fields
-              </span>
-              {customized && (
-                <span className="text-xs" style={{ color: "var(--accent-fg)" }}>customized</span>
-              )}
-            </div>
-            <div className="px-4 pb-4 flex flex-col gap-3">
-              {FIELD_SPECS[type].map((spec) => (
-                <div key={spec.key} className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>{spec.label}</label>
-                  <textarea
-                    value={fieldDrafts[type][spec.key] ?? ""}
-                    onChange={(e) => setFieldDrafts((prev) => ({
-                      ...prev,
-                      [type]: { ...prev[type], [spec.key]: e.target.value },
-                    }))}
-                    rows={2}
-                    maxLength={300}
-                    className="input-field resize-none text-sm"
+      {ENTRY_TYPES.map((type) => (
+        <div key={type} className="flex flex-col gap-2">
+          <h2 className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+            {ENTRY_LABEL[type]}
+          </h2>
+          {FIELD_SPECS[type].map((spec) => {
+            const customized = settings[type][spec.key]?.custom !== null;
+            return (
+              <CollapsibleField
+                key={spec.key}
+                label={spec.label}
+                badge={customized ? "customized" : undefined}
+                value={fieldDrafts[type][spec.key] ?? ""}
+                onChange={(v) => setFieldDrafts((prev) => ({ ...prev, [type]: { ...prev[type], [spec.key]: v } }))}
+                maxLength={300}
+                rows={3}
+                footer={
+                  <SaveResetFooter
+                    onSave={() => saveField(type, spec.key)}
+                    onReset={() => resetField(type, spec.key)}
+                    saving={busyField === `${type}:${spec.key}:save`}
+                    resetting={busyField === `${type}:${spec.key}:reset`}
+                    customized={customized}
                   />
-                </div>
-              ))}
-              {confirmingReset === type ? (
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {resetting ? "Resetting…" : `Reset all ${ENTRY_LABEL[type].toLowerCase()} fields to default?`}
-                  </span>
-                  <div className="flex gap-4 shrink-0">
-                    <button onClick={() => setConfirmingReset(null)} disabled={resetting} className="text-sm" style={{ color: "var(--text-muted)" }}>Cancel</button>
-                    <button onClick={confirmReset} disabled={resetting} className="text-sm font-medium" style={{ color: "#f87171" }}>Confirm</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <button onClick={() => saveType(type)} disabled={savingType === type} className="btn-primary" style={{ width: "auto", paddingLeft: "1rem", paddingRight: "1rem" }}>
-                    {savingType === type ? "Saving…" : "Save"}
-                  </button>
-                  {customized && (
-                    <button onClick={() => setConfirmingReset(type)} className="text-sm" style={{ color: "var(--text-muted)" }}>
-                      Reset to default
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+                }
+              />
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
