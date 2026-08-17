@@ -81,7 +81,8 @@ export default function Nav() {
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              aria-label={label}
+              className="flex items-center justify-center p-2.5 rounded-lg transition-all"
               style={{
                 color: active ? "var(--accent-fg)" : "var(--text-muted)",
                 background: "transparent",
@@ -98,7 +99,6 @@ export default function Nav() {
                   </span>
                 )}
               </span>
-              {label}
             </Link>
           );
         })}

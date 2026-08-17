@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { FIELD_SPECS, EntryType } from "@/lib/cards/prompts";
-import CollapsibleField from "@/components/CollapsibleField";
+import PromptFieldRow from "@/components/PromptFieldRow";
+import PromptEditorModal from "@/components/PromptEditorModal";
 
 function getPin(): string {
   return localStorage.getItem("vb_pin") ?? "";
@@ -21,122 +22,90 @@ interface PromptSettingsResponse {
   reference: Record<string, FieldSetting>;
 }
 
+type OpenField = { type: "system" } | { type: EntryType; key: string };
+
 const ENTRY_TYPES: EntryType[] = ["word", "concept", "reference"];
 const ENTRY_LABEL: Record<EntryType, string> = { word: "Word", concept: "Concept", reference: "Reference" };
 
-function SaveResetFooter({
-  onSave,
-  onReset,
-  saving,
-  resetting,
-  customized,
-}: {
-  onSave: () => void;
-  onReset: () => void;
-  saving: boolean;
-  resetting: boolean;
-  customized: boolean;
-}) {
-  const disabled = saving || resetting;
+function PromptSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between">
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={disabled}
-        className="text-xs font-medium"
-        style={{ color: "var(--accent-fg)" }}
-      >
-        {saving ? "Saving…" : "Save"}
-      </button>
-      {customized && (
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={disabled}
-          className="text-xs"
-          style={{ color: "var(--text-muted)" }}
-        >
-          {resetting ? "Resetting…" : "Reset to default"}
-        </button>
-      )}
+    <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="px-4 pt-3 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{title}</span>
+      </div>
+      <ul className="flex flex-col divide-y" style={{ borderColor: "var(--border-subtle)" }}>
+        {children}
+      </ul>
     </div>
   );
 }
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PromptSettingsResponse | null>(null);
-  const [systemDraft, setSystemDraft] = useState("");
-  const [fieldDrafts, setFieldDrafts] = useState<Record<EntryType, Record<string, string>>>({
-    word: {}, concept: {}, reference: {},
-  });
-  const [systemBusy, setSystemBusy] = useState<"save" | "reset" | null>(null);
-  const [busyField, setBusyField] = useState<string | null>(null); // "<type>:<key>:save" | "...:reset"
+  const [openField, setOpenField] = useState<OpenField | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     const res = await fetch("/api/settings/prompts", { headers: { "x-pin": getPin() } });
-    if (!res.ok) return;
-    const data: PromptSettingsResponse = await res.json();
-    setSettings(data);
-    setSystemDraft(data.system.custom ?? data.system.default);
-    const drafts = { word: {}, concept: {}, reference: {} } as Record<EntryType, Record<string, string>>;
-    for (const type of ENTRY_TYPES) {
-      for (const spec of FIELD_SPECS[type]) {
-        drafts[type][spec.key] = data[type][spec.key]?.custom ?? data[type][spec.key]?.default ?? spec.instruction;
-      }
-    }
-    setFieldDrafts(drafts);
+    if (res.ok) setSettings(await res.json());
   }
 
   useEffect(() => {
     load();
   }, []);
 
-  async function saveSystem() {
-    setSystemBusy("save");
+  async function handleSave(value: string) {
+    if (!openField) return;
+    setBusy(true);
     await fetch("/api/settings/prompts", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ system: systemDraft }),
+      body: JSON.stringify(
+        openField.type === "system"
+          ? { system: value }
+          : { [openField.type]: { [openField.key]: value } }
+      ),
     });
     await load();
-    setSystemBusy(null);
+    setBusy(false);
+    setOpenField(null);
   }
 
-  async function resetSystem() {
-    setSystemBusy("reset");
+  async function handleReset() {
+    if (!openField) return;
+    setBusy(true);
     await fetch("/api/settings/prompts", {
       method: "DELETE",
       headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ scope: "system" }),
+      body: JSON.stringify(
+        openField.type === "system"
+          ? { scope: "system" }
+          : { scope: "fields", entryType: openField.type, field: openField.key }
+      ),
     });
     await load();
-    setSystemBusy(null);
-  }
-
-  async function saveField(type: EntryType, key: string) {
-    setBusyField(`${type}:${key}:save`);
-    await fetch("/api/settings/prompts", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ [type]: { [key]: fieldDrafts[type][key] } }),
-    });
-    await load();
-    setBusyField(null);
-  }
-
-  async function resetField(type: EntryType, key: string) {
-    setBusyField(`${type}:${key}:reset`);
-    await fetch("/api/settings/prompts", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", "x-pin": getPin() },
-      body: JSON.stringify({ scope: "fields", entryType: type, field: key }),
-    });
-    await load();
-    setBusyField(null);
+    setBusy(false);
+    setOpenField(null);
   }
 
   if (!settings) return <div className="py-8 text-center" style={{ color: "var(--text-muted)" }}>Loading…</div>;
+
+  // Derive what the editor modal needs from `settings` + `openField`
+  const editing = openField
+    ? openField.type === "system"
+      ? {
+          label: "System prompt",
+          value: settings.system.custom ?? settings.system.default,
+          maxLength: 1000,
+          customized: settings.system.custom !== null,
+        }
+      : {
+          label: settings[openField.type][openField.key]?.label ?? openField.key,
+          value: settings[openField.type][openField.key]?.custom ?? settings[openField.type][openField.key]?.default ?? "",
+          maxLength: 300,
+          customized: settings[openField.type][openField.key]?.custom !== null,
+        }
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -147,57 +116,33 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>System prompt</h2>
-        <CollapsibleField
-          label="Shared across all types"
-          badge={settings.system.custom !== null ? "customized" : undefined}
-          value={systemDraft}
-          onChange={setSystemDraft}
-          maxLength={1000}
-          rows={4}
-          footer={
-            <SaveResetFooter
-              onSave={saveSystem}
-              onReset={resetSystem}
-              saving={systemBusy === "save"}
-              resetting={systemBusy === "reset"}
-              customized={settings.system.custom !== null}
-            />
-          }
-        />
-      </div>
+      <PromptSection title="System prompt">
+        <PromptFieldRow label="Shared across all types" onClick={() => setOpenField({ type: "system" })} />
+      </PromptSection>
 
       {ENTRY_TYPES.map((type) => (
-        <div key={type} className="flex flex-col gap-2">
-          <h2 className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-            {ENTRY_LABEL[type]}
-          </h2>
-          {FIELD_SPECS[type].map((spec) => {
-            const customized = settings[type][spec.key]?.custom !== null;
-            return (
-              <CollapsibleField
-                key={spec.key}
-                label={spec.label}
-                badge={customized ? "customized" : undefined}
-                value={fieldDrafts[type][spec.key] ?? ""}
-                onChange={(v) => setFieldDrafts((prev) => ({ ...prev, [type]: { ...prev[type], [spec.key]: v } }))}
-                maxLength={300}
-                rows={3}
-                footer={
-                  <SaveResetFooter
-                    onSave={() => saveField(type, spec.key)}
-                    onReset={() => resetField(type, spec.key)}
-                    saving={busyField === `${type}:${spec.key}:save`}
-                    resetting={busyField === `${type}:${spec.key}:reset`}
-                    customized={customized}
-                  />
-                }
-              />
-            );
-          })}
-        </div>
+        <PromptSection key={type} title={ENTRY_LABEL[type]}>
+          {FIELD_SPECS[type].map((spec) => (
+            <PromptFieldRow
+              key={spec.key}
+              label={spec.label}
+              onClick={() => setOpenField({ type, key: spec.key })}
+            />
+          ))}
+        </PromptSection>
       ))}
+
+      {editing && (
+        <PromptEditorModal
+          label={editing.label}
+          value={editing.value}
+          maxLength={editing.maxLength}
+          busy={busy}
+          onClose={() => setOpenField(null)}
+          onSave={handleSave}
+          onReset={editing.customized ? handleReset : undefined}
+        />
+      )}
     </div>
   );
 }

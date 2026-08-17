@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FIELD_SPECS, EntryType } from "@/lib/cards/prompts";
-import CollapsibleField from "@/components/CollapsibleField";
+import PromptFieldRow from "@/components/PromptFieldRow";
+import PromptEditorModal from "@/components/PromptEditorModal";
 
 type Mode = "single" | "bulk";
 
@@ -93,6 +94,7 @@ export default function AddPage() {
   const [savingDefault, setSavingDefault] = useState(false);
   const [regeneratingType, setRegeneratingType] = useState<string | null>(null);
   const [showEntryHelp, setShowEntryHelp] = useState(false);
+  const [openPromptField, setOpenPromptField] = useState<string | null>(null); // "system" | field key
 
   useEffect(() => {
     async function loadSources() {
@@ -322,8 +324,8 @@ export default function AddPage() {
             )}
 
             {showCustomize ? (
-              <div className="flex flex-col gap-2 rounded-xl px-3 py-3" style={{ border: "1px solid var(--border)" }}>
-                <div className="flex items-center justify-between">
+              <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                <div className="flex items-center justify-between px-4 pt-3 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                   <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                     Prompt for this add
                   </span>
@@ -336,29 +338,25 @@ export default function AddPage() {
                     Hide
                   </button>
                 </div>
-                <CollapsibleField
-                  label="System prompt (shared across types)"
-                  value={customSystem}
-                  onChange={setCustomSystem}
-                  maxLength={1000}
-                  rows={4}
-                />
-                {FIELD_SPECS[entryType].map((spec) => (
-                  <CollapsibleField
-                    key={spec.key}
-                    label={spec.label}
-                    value={customFields[spec.key] ?? ""}
-                    onChange={(v) => setCustomFields((f) => ({ ...f, [spec.key]: v }))}
-                    maxLength={300}
-                    rows={3}
+                <ul className="flex flex-col divide-y" style={{ borderColor: "var(--border-subtle)" }}>
+                  <PromptFieldRow
+                    label="System prompt (shared across types)"
+                    onClick={() => setOpenPromptField("system")}
                   />
-                ))}
+                  {FIELD_SPECS[entryType].map((spec) => (
+                    <PromptFieldRow
+                      key={spec.key}
+                      label={spec.label}
+                      onClick={() => setOpenPromptField(spec.key)}
+                    />
+                  ))}
+                </ul>
                 <button
                   type="button"
                   onClick={handleSaveDefaultPrompt}
                   disabled={savingDefault}
-                  className="text-xs text-left"
-                  style={{ color: "var(--text-muted)" }}
+                  className="w-full text-xs text-left px-4 py-3"
+                  style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border-subtle)" }}
                 >
                   {savingDefault ? "Saving…" : "Save as default for future adds →"}
                 </button>
@@ -585,6 +583,24 @@ export default function AddPage() {
             </Link>
           )}
         </div>
+      )}
+
+      {openPromptField && (
+        <PromptEditorModal
+          label={
+            openPromptField === "system"
+              ? "System prompt"
+              : FIELD_SPECS[entryType].find((s) => s.key === openPromptField)?.label ?? openPromptField
+          }
+          value={openPromptField === "system" ? customSystem : customFields[openPromptField] ?? ""}
+          maxLength={openPromptField === "system" ? 1000 : 300}
+          onClose={() => setOpenPromptField(null)}
+          onSave={(v) => {
+            if (openPromptField === "system") setCustomSystem(v);
+            else setCustomFields((f) => ({ ...f, [openPromptField]: v }));
+            setOpenPromptField(null);
+          }}
+        />
       )}
     </div>
   );
